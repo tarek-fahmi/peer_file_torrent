@@ -9,22 +9,22 @@ INCLUDE=-Iinclude
 # to either objs/ or ./
 # In your directory
 pkgchk.o: src/chk/pkgchk.c
-    $(CC) -c $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS)
+	$(CC) -c $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS)
 
 
 pkgchecker: src/pkgmain.c src/chk/pkgchk.c
-    $(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
+	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
 
 # Required for Part 2 - Make sure it outputs `btide` file
 # in your directory ./
 btide: src/btide.c
-    $(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
+	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
 
 # Alter your build for p1 tests to build unit-tests for your
 # merkle tree, use pkgchk to help with what to test for
 # as well as some basic functionality
 p1tests:
-    bash p1test.sh
+	bash p1test.sh
 
 # Alter your build for p2 tests to build IO tests
 # for your btide client, construct .in/.out files
@@ -33,9 +33,9 @@ p1tests:
 # be the tests instead, however please document
 # your testing methods
 p2tests:
-    bash p2test.sh
+	bash p2test.sh
 
 clean:
-    rm -f objs/*
+	rm -f objs/*
     
 
