@@ -6,7 +6,7 @@
 
 
 /**
- * Loads the package for when a value path is given
+ * Loads the package for when a valid path is given
  */
 struct bpkg_obj* bpkg_load(const char* path) {
     struct bpkg_obj* obj = NULL;
