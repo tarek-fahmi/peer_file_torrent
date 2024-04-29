@@ -8,6 +8,7 @@ INCLUDE=-Iinclude
 # Required for Part 1 - Make sure it outputs a .o file
 # to either objs/ or ./
 # In your directory
+
 pkgchk.o: src/chk/pkgchk.c
     $(CC) -c $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS)
 
