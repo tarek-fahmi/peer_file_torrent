@@ -50,10 +50,9 @@ struct bpkg_query bpkg_get_completed_chunks(struct bpkg_obj* bpkg) {
 
 
 /**
- * Gets the mininum of hashes to represented the current completion state
- * Example: If chunks representing start to mid have been completed but
- * 	mid to end have not been, then we will have (N_CHUNKS/2) + 1 hashes
- * 	outputted
+ * Gets only the required/min hashes to represent the current completion state
+ * Return the smallest set of hashes of completed branches to represent
+ * the completion state of the file.
  *
  * @param bpkg, constructed bpkg object
  * @return query_result, This structure will contain a list of hashes
