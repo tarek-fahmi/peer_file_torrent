@@ -8,6 +8,7 @@
 #define SHA256_HEX_LEN (64)
 
 
+
 int arg_select(int argc, char** argv, int* asel, char* harg) {
 	
 	
@@ -36,8 +37,6 @@ int arg_select(int argc, char** argv, int* asel, char* harg) {
 		strncpy(harg, argv[3], SHA256_HEX_LEN);
 	}
 	if(strcmp(cursor, "-file_check") == 0) {
-		puts("filename not provided");
-		exit(1);
 		*asel = 5;
 	}
 	return *asel;
@@ -91,8 +90,7 @@ int main(int argc, char** argv) {
 			qry = bpkg_file_check(obj);
 			bpkg_print_hashes(&qry);
 			bpkg_query_destroy(&qry);
-		} 
-        else {
+		} else {
 			puts("Argument is invalid");
 			return 1;
 		}
@@ -102,3 +100,4 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
+
