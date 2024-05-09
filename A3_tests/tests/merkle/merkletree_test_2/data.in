@@ -1,0 +1,5 @@
+Validate Subtree Structure
+./pkg_main ./valid_1 LEFT_HASH -hashes_of
+./pkg_main ./valid_1 RIGHT_HASH -hashes_of
+./pkg_main ./valid_2 LEFT_HASH -hashes_of
+./pkg_main ./valid_2 RIGHT_HASH -hashes_of

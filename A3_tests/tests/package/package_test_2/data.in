@@ -1,0 +1,2 @@
+Catch file.data Missing
+./pkg_main ./missing.bpkg -file_check

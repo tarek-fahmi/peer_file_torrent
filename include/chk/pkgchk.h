@@ -2,7 +2,17 @@
 #define PKGCHK_H
 
 #include <stddef.h>
+#include <stdint.h>
+#include <merkletree.h>
 
+#define IDENT_MAX (1024)
+#define FILENAME_MAX (256)
+
+#define NHASHES (h) (2^(h-1) - 1)
+#define HASH_SIZE (64)
+
+#define NCHUNKS (h) (2^(h-1) - 1)
+#define CHUNK_SIZE (4096)
 
 /**
  * Query object, allows you to assign
@@ -11,13 +21,38 @@
  *    after malloc the space for each string
  *    Make sure you deallocate in the destroy function
  */
-struct bpkg_query {
+	typedef struct bpkg_query{
 	char** hashes;
 	size_t len;
-};
+} bpkg_query;
 
-//TODO: Provide a definition
-struct bpkg_obj;
+
+/**
+ * bpkg file object, stores file metadata and contents.
+ * Typically: 
+ * 		malloc storage for hashes and chunks.
+ * 		Make sure to deallocate all dynamic memory in destroy funciton.
+ */
+typedef struct bpkg_obj{
+	char* ident;
+	char* filename;
+	uint32_t size;
+
+	uint32_t nhashes;
+	char** hashes; // Fill in size specs here...
+
+	uint32_t nchunks;
+	char** chunks;
+
+	mtree_node* nodes;
+
+} bpkg_obj;
+
+typedef struct chunk_obj{
+	void* data;
+	uint32_t size;
+	uint32_t offset;
+}chunk_obj;
 
 
 /**
