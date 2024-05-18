@@ -1,5 +1,0 @@
-Completed Component - Invalid File
-./pkg_main ./invalid_1 LEFT_HASH -min_hashes
-./pkg_main ./invalid_1 RIGHT_HASH -min_hashes
-./pkg_main ./invalid_2 LEFT_HASH -min_hashes
-./pkg_main ./invalid_2 RIGHT_HASH -min_hashes

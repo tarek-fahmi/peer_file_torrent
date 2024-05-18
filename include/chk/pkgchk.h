@@ -3,15 +3,13 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <merkletree.h>
+#include <tree/merkletree.h>
 
 #define IDENT_MAX (1024)
 #define FILENAME_MAX (256)
 
-#define NHASHES (h) (2^(h-1) - 1)
-#define HASH_SIZE (64)
+#define nchunks_from_depth(d) 1<<(h-1)-1
 
-#define NCHUNKS (h) (2^(h-1) - 1)
 #define CHUNK_SIZE (4096)
 
 /**
@@ -21,7 +19,8 @@
  *    after malloc the space for each string
  *    Make sure you deallocate in the destroy function
  */
-	typedef struct bpkg_query{
+
+typedef struct bpkg_query{
 	char** hashes;
 	size_t len;
 } bpkg_query;
@@ -39,12 +38,10 @@ typedef struct bpkg_obj{
 	uint32_t size;
 
 	uint32_t nhashes;
-	char** hashes; // Fill in size specs here...
-
 	uint32_t nchunks;
-	char** chunks;
-
-	mtree_node* nodes;
+	
+	char** hashes; // Contains pointers to hashes of internal nodes.
+	merkle_tree* mtree; // Contains pointers to hashes leaf nodes.
 
 } bpkg_obj;
 
@@ -99,7 +96,6 @@ struct bpkg_query bpkg_get_completed_chunks(struct bpkg_obj* bpkg);
  * 		and the number of hashes that have been retrieved
  */
 struct bpkg_query bpkg_get_min_completed_hashes(struct bpkg_obj* bpkg); 
-
 
 /**
  * Retrieves all chunk hashes given a certain an ancestor hash (or itself)

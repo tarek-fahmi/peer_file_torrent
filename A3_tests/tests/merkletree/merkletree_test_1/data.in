@@ -1,0 +1,3 @@
+Verify Tree Completion
+./bin/pkg_main ./valid_1.bpkg -all_hashes
+./bin/pkg_main ./valid_2.bpkg -all_hashes

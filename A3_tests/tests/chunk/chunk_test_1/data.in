@@ -1,4 +1,4 @@
 Confirm Chunks Validity
-./pkg_main ./valid_1.bpkg -chunk_check
-./pkg_main ./valid_2.bpkg -chunk_check
+./bin/pkg_main ./valid_1.bpkg -chunk_check
+./bin/pkg_main ./valid_2.bpkg -chunk_check
 
