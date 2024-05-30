@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <merkletree.h>
 #include <my_utils.h>
+#include <pkg_helper.h>
 #include <pkgchk.h>
 // Standard Linux Dependencies:
 #include <stddef.h>
@@ -30,7 +31,6 @@
  */
 struct bpkg_obj* bpkg_load(const char* path)
 {
-
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
         perror("Failed to open file...");
@@ -42,19 +42,20 @@ struct bpkg_obj* bpkg_load(const char* path)
         perror("Fstat failure");
     }
 
-    char* data =
-        (char*)mmap(NULL, fstats.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (data = MAP_FAILED) {
+    char* bpkg_data = (char*)mmap(NULL, fstats.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (bpkg_data = MAP_FAILED) {
         perror("mmap");
         return NULL;
     }
 
+    struct bpkg_obj bpkg;
+
+    bpkg_monoparse()
+
+
+
     close(fd);
-
     struct bpkg_obj* obj;
-
-    
-
     return obj;
 }
 
@@ -115,7 +116,7 @@ struct bpkg_query bpkg_get_all_hashes(struct bpkg_obj* bpkg)
 struct bpkg_query bpkg_get_completed_chunks(struct bpkg_obj* bpkg)
 {
     struct bpkg_query qry;
-    mtree_node** nodes = bpkg->mtree->leaf_nodes;
+    mtree_node** nodes = bpkg->mtree->hsh_nodes;
     
     char* comp_chk_hashes[SHA256_HEXLEN];
  
@@ -149,16 +150,6 @@ struct bpkg_query bpkg_get_min_completed_hashes(struct bpkg_obj* bpkg){
     qry->hashes = bpkg_get_subtree_chunks(subtree_root, 0);
     qry->len = mtree_get_nchunks_from_root(node);
 }
-
-
-
-
-mtree_node* bpkg_get_node_from_hash(mtree_node* current, char* query_hash){
-    return;
-}
-
-
-
 
 /**
  * Retrieves all chunk hashes given a certain an ancestor hash (or itself)
@@ -207,4 +198,3 @@ void bpkg_obj_destroy(struct bpkg_obj* bobj)
     free(bobj);
 
 }
-

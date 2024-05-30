@@ -3,6 +3,8 @@
 #include <merkletree.h>
 #include <my_utils.h>
 #include <pkgchk.h>
+#include <pkg_helper.h>
+#include <sha256.h>
 // Standard Linux Dependencies:
 #include <stddef.h>
 #include <stdint.h>
@@ -25,14 +27,15 @@
  * @param  rest: Pointer to the rest of the file.
  * @retval None
  */
-void load_chunk(mtree_node* node, char* dataStart, char* rest){
+void chk_parse(mtree_node* node, char* dataStart, char* rest, uint8_t* data_file){
     chunk_obj* chunk = (chunk_obj*) (node->value);
 
-    char* hash_temp = truncate_string((dataStart, ",", &rest), SHA256_HEXLEN);
-    strcpy(node->expected_hash, hash_temp);
+    char* exp_hash_tmp = truncate_string((dataStart, ",", &rest), SHA256_HEXLEN);
+    strcpy(node->expected_hash, exp_hash_tmp);
 
     chunk->offset = (uint32_t) strtoi(strtok_r(dataStart, ",", &rest));
     chunk->size = (uint32_t) strtoi(strtok_r(dataStart, ",", &rest));
+    chunk->data = (data_file + chunk->offset);
 }
 
 /**
@@ -85,18 +88,36 @@ void bpkg_multiparse(bpkg_obj* bpkg, char* startData, char* key, char* rest)
 
             strcpy(node->expected_hash, buffer);
             bpkg->hashes[i] = &node->expected_hash;
-            bpkg->mtree->leaf_nodes[i] = node;
+            bpkg->mtree->chk_nodes[i] = node;
         }
     } else if (bpkg->nchunks != NULL && strcmp(key, "chunks") == 0) {
+
+        int fd = open(bpkg->filename, O_RDONLY);
+        if (fd < 0) {
+            perror("Failed to open file...");
+            return NULL;
+        }
+
+        struct stat fstats;
+        if (fstat(fd, &fstats)) {
+            perror("Fstat failure");
+        }
+
+        uint8_t* data_file = (char*)mmap(NULL, fstats.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (data_file = MAP_FAILED) {
+            perror("mmap");
+            return NULL;
+        }
+
         for (int i = 0; i < bpkg->nhashes, i++;) {
             mtree_node* node = (mtree_node*)malloc(sizeof(mtree_node));
 
             char* buffer = string_truncate(strtok_r(startData, "\n", &rest), SHA256_HEXLEN);
             node->is_leaf = 0;
-            node->value = (void*) chunk_parse(node, startData, rest);
 
+            chk_parse(node, startData, rest, data_file);
             strcpy(node->expected_hash, buffer);
-            bpkg->mtree->leaf_nodes[i] = node;
+            bpkg->mtree->chk_nodes[i] = node;
         }
     }
 }
@@ -116,7 +137,7 @@ bpkg_obj* bpkg_unpack(struct bpkg_obj* bpkg, char* bpkgString)
     char* rest;
 
     while ((key = strtok_r(bpkgString, ":", &rest))) {
-        if (strncmp(key, "chunks") != 0 && strcmp(key, "hashes") != 0) {
+        if (strcmp(key, "chunks") != 0 && strcmp(key, "hashes") != 0) {
             bpkg_multiparse(bpkg, dataStart, key, rest);
         } else {
             char* defStr = strtok_r(bpkgString, "\n", &rest);
@@ -173,7 +194,7 @@ char** bpkg_get_subtree_chunks(mtree_node* node, int* size)
         *size = 1;
         return a_hashes;
     }else{
-        u_int32_t a_size = 0, b_size = 0;
+        uint32_t a_size = 0, b_size = 0;
 
         a_hashes = bpkg_get_subtree_chunks(node->left, &a_size);
         b_hashes = bpkg_get_subtree_chunks(node->right, &b_size);
@@ -183,4 +204,17 @@ char** bpkg_get_subtree_chunks(mtree_node* node, int* size)
         return arr_merged;
     }
     
+}
+
+/**
+ * @brief Given a node hash, return the corresponding node if it exists.
+ * 
+ * @param node, the node representing the subtree which contains the node corresponding to the hash.
+ * @param query_hash, the hash corresponding to the node we are searching for in the subtree we are searching through.
+ * 
+ * @returns Node corresponding to the hash we are querying in the merkle (sub)tree, returning -1 if the node doesn't exist.
+*/
+mtree_node* bpkg_get_node_from_hash(mtree_node* node, char* query_hash){
+    
+    return;
 }

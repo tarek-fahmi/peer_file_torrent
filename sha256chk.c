@@ -7,7 +7,6 @@
 
 int main(int argc, char** argv) {
 
-
   FILE* file = NULL;
   struct sha256_compute_data cdata = { 0 };
   char buf[SHA256_BFLEN];

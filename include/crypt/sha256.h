@@ -2,6 +2,7 @@
 #define BTYDE_CRYPT_SHA256
 
 #include <stdint.h>
+#include <merkletree.h>
 
 #define SHA256_CHUNK_SZ (64)
 #define SHA256_INT_SZ (8)
@@ -29,6 +30,8 @@ void sha256_finalize(struct sha256_compute_data* data,
 
 void sha256_output_hex(struct sha256_compute_data* data, 
 		char hexbuf[SHA256_CHUNK_SZ]);
+
+void sha256_compute_chunk_hash(mtree_node* node);
 
 #endif
 

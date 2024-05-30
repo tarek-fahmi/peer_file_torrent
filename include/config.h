@@ -48,7 +48,7 @@ typedef struct config_object{
  * 
  * @return config_t: A config object containing the extracted information.
 */
-config_t* config_load(char* config_filename);
+config_t* config_load(char* config_filename, config_t* c_obj);
 
 
 /**

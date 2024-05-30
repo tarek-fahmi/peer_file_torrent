@@ -45,11 +45,7 @@ typedef struct bpkg_obj{
 
 } bpkg_obj;
 
-typedef struct chunk_obj{
-	void* data;
-	uint32_t size;
-	uint32_t offset;
-}chunk_obj;
+
 
 
 /**
