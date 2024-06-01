@@ -5,21 +5,50 @@
 #include <merkletree.h>
 
 
-/**
- * @brief Attempts to open a file, throwing an error 
- *         if the file failed to open.
- * @param path, filepath
- * @param mode, open mode.
-*/
-FILE *my_open(char *path, char *mode){
-    FILE *f_ptr = fopen(path, "");
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-    if (f_ptr == NULL) {
-        printf("Failed to open %s...\n", path);
+// Open a file in shared memory.
+void* open_file_and_map_to_shared_memory(const char* path) {
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) {
+        perror("Failed to open package...");
+        exit(EXIT_FAILURE);
+    }
+
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+        perror("Failed to get file size");
+        close(fd);
         return NULL;
     }
-    
-    return f_ptr;
+
+    void* addr = mmap(NULL, sb.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (addr == MAP_FAILED) {
+        perror("Failed to map file to memory");
+        close(fd);
+        return NULL;
+    }
+
+    close(fd);
+    return addr;
+}
+
+
+void *my_malloc(size_t size)
+{
+    void* heap_obj = malloc(size);
+    if (heap_obj == NULL)
+    {
+        perror("Malloc failed... :(");
+        exit(EXIT_FAILURE);
+    }
+    return heap_obj;
 }
 
 
@@ -27,7 +56,7 @@ FILE *my_open(char *path, char *mode){
  * @brief  Merges two character arrays, and returns the concatenation of the arrays (unsorted).
  */
 char** merge_arrays(char** a, char** b, int asize, int bsize){
-    char** newarr = malloc(sizeof(asize + bsize) * sizeof(char*));
+    char** newarr = my_malloc(sizeof(asize + bsize) * sizeof(char*));
     memcpy(newarr, a, sizeof(char) * asize);
     memcpy(newarr + asize, b, sizeof(char) * bsize);
 
@@ -56,10 +85,6 @@ int check_null(void* obj){
     else return 0;
 }
 
-void debug_print(char* msg){
-    printf("%s", msg);
-    return;
-}
 
 check(int return_value, char* error_msg){
     if (return_value < 0){
@@ -74,15 +99,16 @@ check(int return_value, char* error_msg){
 /* The following code pertains to my queue in linked list ADT, inspired by my code from "Assignment 2: Multi Type Linked List" */
 
 // Initialies an empty queue on the heap, returning a pointer.
-void q_init(queue_t* q_obj) {
+queue_t* q_init(queue_t* q_obj) {
+    queue_t* queue = (queue_t*)my_malloc(sizeof(queue_t));
     q_obj->head = NULL;
     q_obj->tail = NULL;
-    return NULL;
+    return queue;
 }
 
 // Enqueues a queue element, storing data in the end of the linked list and allocating memory.
 void q_enqueue(queue_t* qobj, void* data) {
-    q_node_t* new_node = (q_node_t*) malloc(sizeof(q_node_t));
+    q_node_t* new_node = (q_node_t*) my_malloc(sizeof(q_node_t));
     if (new_node == NULL) {
         perror("Failed to allocate memory for queue node...");
         exit(EXIT_FAILURE);

@@ -1,27 +1,37 @@
-#ifndef NETPKT_H
-#define NETPKT_H
+#ifndef PACKET_H
+#define PACKET_H
 
-// Local Dependencies:
-#include <pkgchk.h>
-#include <btide.h>
-#include <my_utils.h>
+#include <crypt/sha256.h>
+#include <tree/merkletree.h>
+#include <chk/pkgchk.h>
+#include <chk/pkg_helper.h>
+#include <utilities/my_utils.h>
+#include <peer_2_peer/peer_handler.h>
+#include <peer_2_peer/peer_data_sync.h>
+#include <peer_2_peer/packet.h>
+#include <peer_2_peer/package.h>
 #include <config.h>
-#include <peer.h>
+#include <cli.h>
 // Standard Linux Dependencies:
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 // Additional Linux Dependencies:
 #include <string.h>
 #include <pthread.h>
-#include <sys/select.h>
+#include <math.h>
 #include <errno.h>
-#include <sys/socket.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <signal.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/select.h>
 
 #define PAYLOAD_MAX (4092)
 #define DATA_MAX (2998)
@@ -49,19 +59,9 @@ typedef struct packet{
     payload_t payload;
 }packet_t;
 
-/**
- * Struct which handles the shared memory for network requests
-*/
 
+void packet_marshall(packet_t* packet, uint8_t* data_marshalled);
 
-uint8_t* packet_marshall(packet_t pkt_o);
-
-packet_t packet_unmarshall(uint8_t *data_unmarshalled);
-
-
-
-
-
-
+void packet_unmarshall(packet_t* pkt_i, uint8_t *data_marshalled);
 
 #endif

@@ -1,8 +1,40 @@
 #ifndef BTYDE_CRYPT_SHA256
 #define BTYDE_CRYPT_SHA256
 
+// Local Dependencies:=
+#include <crypt/sha256.h>
+#include <tree/merkletree.h>
+#include <chk/pkgchk.h>
+#include <chk/pkg_helper.h>
+#include <utilities/my_utils.h>
+#include <peer_2_peer/peer_handler.h>
+#include <peer_2_peer/peer_server.h>
+#include <peer_2_peer/peer_data_sync.h>
+#include <peer_2_peer/packet.h>
+#include <peer_2_peer/package.h>
+#include <config.h>
+#include <cli.h>
+// Standard Linux Dependencies:
+#include <stddef.h>
 #include <stdint.h>
-#include <merkletree.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <unistd.h>
+// Additional Linux Dependencies:
+#include <string.h>
+#include <pthread.h>
+#include <math.h>
+#include <errno.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+
 
 #define SHA256_CHUNK_SZ (64)
 #define SHA256_INT_SZ (8)
@@ -31,7 +63,9 @@ void sha256_finalize(struct sha256_compute_data* data,
 void sha256_output_hex(struct sha256_compute_data* data, 
 		char hexbuf[SHA256_CHUNK_SZ]);
 
-void sha256_compute_chunk_hash(mtree_node* node);
+void sha256_compute_chunk_hash(mtree_node_t* leaf);
+
+void sha256_compute_internal_hash(mtree_node_t* internal)
 
 #endif
 

@@ -2,17 +2,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <chk/pkgchk.h>
+#include <pkgchk.h>
+#include <sha256.h>
+#include <pkg_helper.h>
+#include <stdbool.h>
 
-merkle_tree* mtree_build(bpkg_obj* bpkg){
-    char** hashes = bpkg->hashes;
-    uint32_t nhashes = bpkg->nhashes;
+mtree_t* mtree_build(bpkg_t* bpkg)
+{
+    mtree_t* mtree = (mtree_t*) my_malloc(sizeof(mtree_t));
+    bpkg->mtree = mtree;
 
-    chunk** chunks = bpkg->hashes;
     uint32_t nchunks = bpkg->nchunks;
 
     int i = 0;
-    struct merkle_tree* mkt = mtree_from_lvlorder(hashes, NULL, nhashes, chunks, nchunks, i);
-
+    mtree->root = mtree_from_lvlorder(mtree, i);
 }
 
 /**
@@ -26,31 +29,34 @@ merkle_tree* mtree_build(bpkg_obj* bpkg){
  * @retval 
  */
 
-mtree_node* mtree_from_lvlorder(int i, mtree_node* parent, char** hashes, uint32_t nhashes, chunk** chunks, uint32_t nchunks){
-    uint32_t left_i = 2*i+1;
-    uint32_t right_i = 2*i+2;
+mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i)
+{
+    uint32_t i_left = 2*i+1;
+    uint32_t i_right = 2*i+2;
 
-    mtree_node* node = (mtree_node*) malloc(sizeof(mtree_node)); 
+    uint32_t nnodes = mtree->nnodes;
+    mtree_node_t** nodes = mtree->nodes;
 
-    if(parent != NULL);
-        node->parent = parent;
+    mtree_node_t* node = (mtree_node_t*) my_malloc(sizeof(mtree_node_t)); 
 
+    if(i < nnodes)
+    {
+        mtree_node_t* node_cur = nodes[i];
 
-    if(i < nhashes){
-        node->left = mtree_from_lvlorder(left_i, node, hashes, nhashes, chunks, nchunks);
-        node->right = mtree_from_lvlorder(right_i, node, hashes, nhashes, chunks, nchunks);
-
-        node->is_leaf = 0;
-    }else if(i < (nhashes + nchunks)){
-
-        chunk* chunk = chunks[i - nhashes];
-
-
-        // Assign hash attributes here...
-    }else{
-        return NULL;
+        if (i_left < nnodes && i_right < nnodes)
+        {
+            node_cur->left = mtree_from_lvlorder(mtree, i_left);
+            node_cur->left = mtree_from_lvlorder(mtree, i_right);
+            sha256_compute_internal_hash(node_cur);
+            return node_cur;
+            
+        }else
+        {
+            sha256_compute_chunk_hash(node_cur);
+            return node_cur;
+        }
     }
-    return node;
+
 }
 
 /**
@@ -59,35 +65,35 @@ mtree_node* mtree_from_lvlorder(int i, mtree_node* parent, char** hashes, uint32
  * @param  mode: Specify desire for expected (mode = 0) or computed (mode = 1) hashes.
  * @retval Hash array.
  */
-char** mtree_get_chunk_hashes(struct merkle_tree* tree, int mode, int nchunks){
+char** mtree_get_chunk_hashes(struct mtree_t* mtree, int mode, int nchunks){
     char* chk_hashes[nchunks];
 
     for (int i=0; i < nchunks; i++) {
         if (mode == 0){
-            chk_hashes[i] = tree->chk_nodes[i];
+            chk_hashes[i] = mtree->chk_nodes[i];
         }else if (mode == 1){
-            chk_hashes[i] = tree->chk_nodes[i];
+            chk_hashes[i] = mtree->chk_nodes[i];
         }
     }
 }
 
-uint32_t mtree_get_nchunks_from_root(mtree_node* root, uint32_t mtree_height){
+uint32_t mtree_get_nchunks_from_root(mtree_node_t* root, uint32_t mtree_height){
     return (uint32_t) (pow(2, (mtree_height - 1)) - 1);
 }
 
-void mtree_node_destroy(mtree_node* node){
+void mtree_node_t_destroy(mtree_node_t* node){
     free(node->value);
 }
 
-void mtree_destroy(merkle_tree* mtree, uint32_t nnodes){
-    mtree_node** hsh_nodes = mtree->hsh_nodes;
+void mtree_destroy(mtree_t* mtree, uint32_t nnodes){
+    mtree_node_t** hsh_nodes = mtree->hsh_nodes;
     
     for (int i=0; i++; i<nnodes) {
-        mtree_node_destroy(hsh_nodes[i]);
+        mtree_node_t_destroy(hsh_nodes[i]);
     }
     free(hsh_nodes);
 
-    mtree_node** chk_nodes = mtree->chk_nodes;
+    mtree_node_t** chk_nodes = mtree->chk_nodes;
     for (int i=0; i++; i<nnodes) {
         mtree_node_destroy(chk_nodes[i]);
     }

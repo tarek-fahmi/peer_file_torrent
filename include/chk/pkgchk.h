@@ -1,57 +1,57 @@
 #ifndef PKGCHK_H
 #define PKGCHK_H
 
+// Local Dependencies:=
+#include <crypt/sha256.h>
+#include <tree/merkletree.h>
+#include <chk/pkgchk.h>
+#include <chk/pkg_helper.h>
+#include <utilities/my_utils.h>
+#include <peer_2_peer/peer_handler.h>
+#include <peer_2_peer/peer_server.h>
+#include <peer_2_peer/peer_data_sync.h>
+#include <peer_2_peer/packet.h>
+#include <peer_2_peer/package.h>
+#include <config.h>
+#include <cli.h>
+// Standard Linux Dependencies:
 #include <stddef.h>
 #include <stdint.h>
-#include <tree/merkletree.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <unistd.h>
+// Additional Linux Dependencies:
+#include <string.h>
+#include <pthread.h>
+#include <math.h>
+#include <errno.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/select.h>
 
 #define IDENT_MAX (1024)
 #define FILENAME_MAX (256)
-
 #define nchunks_from_depth(d) 1<<(h-1)-1
 
-#define CHUNK_SIZE (4096)
+
+// Part 1 Source Code
 
 /**
- * Query object, allows you to assign
- * hash strings to it.
- * Typically: malloc N number of strings for hashes
- *    after malloc the space for each string
- *    Make sure you deallocate in the destroy function
+ * Gets only the required/min hashes to represent the current completion state
+ * Return the smallest set of hashes of completed branches to represent
+ * the completion state of the file.
+ *
+ * @param bpkg, constructed bpkg object
+ * @return query_result, This structure will contain a list of hashes
+ * 		and the number of hashes that have been retrieved
  */
-
-typedef struct bpkg_query{
-	char** hashes;
-	size_t len;
-} bpkg_query;
-
-
-/**
- * bpkg file object, stores file metadata and contents.
- * Typically: 
- * 		malloc storage for hashes and chunks.
- * 		Make sure to deallocate all dynamic memory in destroy funciton.
- */
-typedef struct bpkg_obj{
-	char* ident;
-	char* filename;
-	uint32_t size;
-
-	uint32_t nhashes;
-	uint32_t nchunks;
-	
-	char** hashes; // Contains pointers to hashes of internal nodes.
-	merkle_tree* mtree; // Contains pointers to hashes leaf nodes.
-
-} bpkg_obj;
-
-
-
-
-/**
- * Loads the package for when a value path is given
- */
-struct bpkg_obj* bpkg_load(const char* path);
+bpkg_t* bpkg_load(const char* path);
 
 /**
  * Checks to see if the referenced filename in the bpkg file
@@ -62,15 +62,14 @@ struct bpkg_obj* bpkg_load(const char* path);
  * 		If the file exists, hashes[0] should contain "File Exists"
  *		If the file does not exist, hashes[0] should contain "File Created"
  */
-struct bpkg_query bpkg_file_check(struct bpkg_obj* bpkg);
-
+bpkg_query_t bpkg_file_check(bpkg_t* bpkg);
 /**
  * Retrieves a list of all hashes within the package/tree
  * @param bpkg, constructed bpkg object
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-struct bpkg_query bpkg_get_all_hashes(struct bpkg_obj* bpkg);
+bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg);
 
 /**
  * Retrieves all completed chunks of a package object
@@ -78,8 +77,7 @@ struct bpkg_query bpkg_get_all_hashes(struct bpkg_obj* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-struct bpkg_query bpkg_get_completed_chunks(struct bpkg_obj* bpkg);
-
+bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg);
 
 /**
  * Gets the mininum of hashes to represented the current completion state
@@ -91,7 +89,7 @@ struct bpkg_query bpkg_get_completed_chunks(struct bpkg_obj* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-struct bpkg_query bpkg_get_min_completed_hashes(struct bpkg_obj* bpkg); 
+bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg);
 
 /**
  * Retrieves all chunk hashes given a certain an ancestor hash (or itself)
@@ -104,20 +102,22 @@ struct bpkg_query bpkg_get_min_completed_hashes(struct bpkg_obj* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-struct bpkg_query bpkg_get_all_chunk_hashes_from_hash(struct bpkg_obj* bpkg, char* hash);
-
+bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash);
 
 /**
  * Deallocates the query result after it has been constructed from
  * the relevant queries above.
  */
-void bpkg_query_destroy(struct bpkg_query* qry);
+void bpkg_query_destroy(bpkg_query_t* qobj);
 
 /**
  * Deallocates memory at the end of the program,
  * make sure it has been completely deallocated
  */
-void bpkg_obj_destroy(struct bpkg_obj* obj);
+void bpkg_t_destroy(bpkg_t* bobj);
+
+
+
+int bpkg_check_chunk(mtree_node_t* node);
 
 #endif
-
