@@ -3,9 +3,8 @@
 #include <chk/pkgchk.h>
 #include <chk/pkg_helper.h>
 #include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
 #include <peer_2_peer/peer_data_sync.h>
-#include <peer_2_peer/packet.h>
+#include <peer_2_peer/peer_server.h>
 #include <peer_2_peer/package.h>
 #include <config.h>
 #include <cli.h>
@@ -29,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+
 void* server_thread_handler(void* args_void) {
     server_thr_args_t* args = (server_thr_args_t*)args_void;
     p2p_server_listening(args->server_fd, args->server_port, args->reqs_q, args->peers);
@@ -48,7 +48,7 @@ void create_p2p_server_thread(int server_fd, int server_port, request_q_t* reqs_
     // Create the thread
     int result = pthread_create(&server_thread, NULL, server_thread_handler, args);
     if (result != 0) {
-        perror("Server thread creation failed");
+        perror("Server thread creation failed\n");
         free(args);
         exit(EXIT_FAILURE);
     }
@@ -56,12 +56,12 @@ void create_p2p_server_thread(int server_fd, int server_port, request_q_t* reqs_
     // Detach the thread to allow it to clean up after itself when it finishes
     result = pthread_detach(server_thread);
     if (result != 0) {
-        perror("Failed to detach server thread");
+        perror("Failed to detach server thread\n");
         free(args);
         exit(EXIT_FAILURE);
     }
 
-    debug_print("Server thread created successfully");
+    debug_print("Server thread created successfully\n");
 }
 
 int p2p_setup_server(uint16_t port) {
@@ -69,7 +69,7 @@ int p2p_setup_server(uint16_t port) {
     int server_sock_fd;
 
     if ((server_sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        perror("Socket creation for new peer failed...");
+        perror("Socket creation for new peer failed...\n");
         exit(EXIT_FAILURE);
     }
 
@@ -80,7 +80,7 @@ int p2p_setup_server(uint16_t port) {
     };
 
     if (bind(server_sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Bind to new peer failed...");
+        perror("Bind to new peer failed...\n");
         close(server_sock_fd);
         exit(EXIT_FAILURE);
     }
@@ -91,8 +91,8 @@ int p2p_setup_server(uint16_t port) {
         exit(EXIT_FAILURE);
     }
 
-    debug_print("Server listening...");
-    debug_print("Successfully connected to new port...");
+    debug_print("Server listening...\n");
+    debug_print("Successfully connected to new port...\n");
     return server_sock_fd;
 }
 
@@ -104,7 +104,7 @@ void* server_thread_handler(void* args_void) {
 
 void create_server_thread(int server_fd, int server_port, request_q_t* reqs_q, peers_t* peers) {
     pthread_t server_thread;
-    server_thr_args_t* args = (server_thr_args_t*)malloc(sizeof(server_thr_args_t));
+    server_thr_args_t* args = (server_thr_args_t*)my_malloc(sizeof(server_thr_args_t));
 
     args->server_fd = server_fd;
     args->server_port = server_port;
@@ -114,7 +114,7 @@ void create_server_thread(int server_fd, int server_port, request_q_t* reqs_q, p
     // Create the thread
     int result = pthread_create(&server_thread, NULL, server_thread_handler, args);
     if (result != 0) {
-        perror("Server thread creation failed");
+        perror("Server thread creation failed"\n);
         free(args);
         exit(EXIT_FAILURE);
     }
@@ -122,12 +122,12 @@ void create_server_thread(int server_fd, int server_port, request_q_t* reqs_q, p
     // Detach the thread to allow it to clean up after itself when it finishes
     result = pthread_detach(server_thread);
     if (result != 0) {
-        perror("Failed to detach server thread");
+        perror("Failed to detach server thread\n");
         free(args);
         exit(EXIT_FAILURE);
     }
 
-    debug_print("Server thread created successfully");
+    debug_print("Server thread created successfully\n");
 }
 
 void p2p_server_listening(int server_fd, int server_port, request_q_t* reqs_q, peers_t* peers) {
@@ -137,13 +137,13 @@ void p2p_server_listening(int server_fd, int server_port, request_q_t* reqs_q, p
         socklen_t addrlen = sizeof(peer_addr);
 
         int new_sock_fd = accept(server_fd, (struct sockaddr *)&peer_addr, &addrlen);
-        check_err(new_sock_fd, "Failed to accept connection");
+        check_err(new_sock_fd, "Failed to accept connection\n");
 
         peer_t* new_peer = (peer_t*)my_malloc(sizeof(peer_t));
         peer_init(new_peer, inet_ntoa(peer_addr.sin_addr), ntohs(peer_addr.sin_port));
         new_peer->sock_fd = new_sock_fd;
 
-        debug_print("Connected to new peer successfully!");
+        debug_print("Connected to new peer successfully!\n");
         peer_create_thread(new_peer, reqs_q, peers);
     }
 }

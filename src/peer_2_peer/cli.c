@@ -1,36 +1,15 @@
-#include <crypt/sha256.h>
-#include <tree/merkletree.h>
-#include <chk/pkgchk.h>
-#include <chk/pkg_helper.h>
-#include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
+#include <netinet/in.h>
 #include <peer_2_peer/peer_data_sync.h>
-#include <peer_2_peer/packet.h>
-#include <peer_2_peer/package.h>
-#include <config.h>
-#include <cli.h>
+#include <peer_2_peer/peer_handler.h>
+#include <chk/pkgchk.h>
+#include <sys/socket.h>
+#include <tree/merkletree.h>
+#include <utilities/my_utils.h>
 // Standard Linux Dependencies:
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
 
-void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers)
+void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs)
 {
     peer_t* peer = (peer_t*) my_malloc(sizeof(peer_t));
     peer_init(peer, ip, port);
@@ -43,7 +22,6 @@ void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers)
     };
 
     int err;
-
     err = inet_pton(AF_INET, peer->ip, &peer_addr.sin_addr);
     check_err(err, "Invalid address/ address not supported");
 
@@ -52,9 +30,7 @@ void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers)
 
     debug_print("New connection successful!");
 
-    peer_create_thread(peer, reqs_q, peer);
-
-    return;
+    peer_create_thread(peer, reqs_q, peers, bpkgs);
 }
 
 /**
@@ -65,13 +41,16 @@ void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers)
  * 
  * @returns -1 if unsuccessful.
 */
-void cli_disconnect(peers_t* peers, char* ip, int port)
-{
-    peer_t* peer = peers_find(peers, ip, port);
-    pthread_cancel(&peer->thread);
+void cli_disconnect(char* ip, int port, peers_t* peers, request_q_t* reqs_q)
+{   
+    peer_t* peer_target = peers_find(peers, ip, port);
+    packet_t* dsn_pkt = (packet_t*) my_malloc(sizeof(packet_t));
+    dsn_pkt->msg_code = PKT_MSG_DSN;
+
+    request_t* req = req_init(dsn_pkt, peer_target);
+    req_enqueue(reqs_q, req);
+    debug_print("Disconnection request for peer %s has been queued");
 }
-
-
 
 
 /**
@@ -82,22 +61,27 @@ void cli_disconnect(peers_t* peers, char* ip, int port)
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_add_package(char* filename)
+int cli_add_package(char* filename, bpkgs_t* bpkgs)
 {
-    if (arguments == NULL || strlen(arguments) == 0) {
-        printf("Missing file argument\n");
-    return -1;
+    if (filename == NULL || strlen(filename <= 1)){
+        perror("Missing file argument.\n");
+        return -1;
     }
-    bpkg_t* bpkg = bpkg_load(filename);
+    
+    char filepath[512];
+    strcat(filepath, bpkgs->directory);
+    strcat(filepath, filename);
 
+    bpkg_t* bpkg = bpkg_load(filename);
     if (bpkg == NULL)
     {
-        perror("Failed to load bpkg file...");
-        return -1;   
+        return -1;
     }
 
-    printf("Package added: %s\n", arguments);
-    return 0;
+    pkg
+
+
+
 }
 
 /**
@@ -143,7 +127,7 @@ int cli_fetch(char* args);
  * @returns Intger, 0 if valid command, -1 if invalid command.
 */
 int cli_command_manager(char* input);
-int cli_process_command(char* input) {
+int cli_process_command(char* input, request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs) {
     char* ip = (char*)my_malloc(INET_ADDRSTRLEN);
     uint32_t port;
     char* arguments;
@@ -153,7 +137,7 @@ int cli_process_command(char* input) {
         sscanf(arguments, "%s:%u", ip, &port);
     } else if (strcmp(command, "DISCONNECT") == 0) {
         sscanf(arguments, "%s:%u", ip, &port);
-        cli_disconnect(ip, port, reqs_q, peers);
+        cli_disconnect(ip, port);
     } else if (strcmp(command, "ADDPACKAGE") == 0) {
         cli_add_package(arguments);
     } else if (strcmp(command, "REMPACKAGE") == 0) {

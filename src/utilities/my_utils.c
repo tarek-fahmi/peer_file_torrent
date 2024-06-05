@@ -1,9 +1,5 @@
-#include <my_utils.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <merkletree.h>
-
+#include <utilities/my_utils.h>
+#include <tree/merkletree.h>
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -99,11 +95,11 @@ check(int return_value, char* error_msg){
 /* The following code pertains to my queue in linked list ADT, inspired by my code from "Assignment 2: Multi Type Linked List" */
 
 // Initialies an empty queue on the heap, returning a pointer.
-queue_t* q_init(queue_t* q_obj) {
-    queue_t* queue = (queue_t*)my_malloc(sizeof(queue_t));
+queue_t* q_init() {
+    queue_t* q_obj = (queue_t*)my_malloc(sizeof(queue_t));
     q_obj->head = NULL;
     q_obj->tail = NULL;
-    return queue;
+    return q_obj;
 }
 
 // Enqueues a queue element, storing data in the end of the linked list and allocating memory.
@@ -165,4 +161,10 @@ void q_destroy(queue_t* qobj) {
         free(temp);
     }
     free(qobj);
+}
+
+void q_node_destroy(q_node_t* node)
+{
+    free(node);
+    return;
 }

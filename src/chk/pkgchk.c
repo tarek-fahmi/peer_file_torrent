@@ -1,34 +1,12 @@
 #include <crypt/sha256.h>
 #include <tree/merkletree.h>
 #include <chk/pkgchk.h>
-#include <chk/pkg_helper.h>
 #include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
-#include <peer_2_peer/peer_data_sync.h>
-#include <peer_2_peer/packet.h>
-#include <peer_2_peer/package.h>
-#include <config.h>
-#include <cli.h>
-// Standard Linux Dependencies:
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <dirent.h>
 #include <fcntl.h>
-#include <signal.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
+#include <bits/mman-linux.h>
+#include <sys/mman.h>
+#include <stdio.h>
 
 
 // Part 1 Source Code
@@ -48,26 +26,31 @@ bpkg_t* bpkg_load(const char* path)
 
     struct stat statbuf;
     if (fstat(path, &statbuf)) {
-        perror("Fstat failure");
+        perror("Fstat failure\n");
     }
 
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
-        perror("Failed to open file...");
+        perror("Cannot open file\n");
         return NULL;
     }
 
     bpkg->mtree->data = (char*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
     if (bpkg->mtree->data = MAP_FAILED) {
-        perror("mmap");
+        perror("Cannot open file\n");
         return NULL;
     }
 
     close(fd);
 
-    bpkg_unpack(bpkg);
-    return;
+    int err = bpkg_unpack(bpkg);
+    if (err < 0)
+    {
+        perror("Unable to parse bpkg file.\n");
+        return NULL;
+    }
+    return bpkg;
 }
 
 /**
@@ -82,8 +65,9 @@ bpkg_t* bpkg_load(const char* path)
 bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
 {
     bpkg_query_t qobj;
+    mtree_t* mtree = bpkg->mtree;`
 
-    if (access(bpkg->filename, R_OK)) {
+    if (access(mtree->filename, R_OK)) {
         qobj.hashes[0] = "File exists";
 
     } else {
@@ -93,7 +77,7 @@ bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
             perror("Failed to create bpkg data file...");
         }
 
-        fseek(fptr, bpkg->size - 1, SEEK_SET);
+        fseek(fptr, mtree->size - 1, SEEK_SET);
         fwrite("\0", 1, 1, fptr);
         qobj.hashes[0] = "File created";
     }
@@ -138,23 +122,26 @@ bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg)
     mtree_t* mtree = bpkg->mtree;
     mtree_node_t** nodes = mtree->nodes;
     
-    char* comp_chk_hashes[SHA256_HEXLEN] = (char**) malloc(bpkg->nchunks * SHA256_HEXLEN);
+    char* comp_chk_hashes[SHA256_HEXLEN] = (char**) malloc(mtree->nchunks 
+                                                            * SHA256_HEXLEN);
  
-    for (int i= ((mtree->nnodes - 1) / 2); i < bpkg->nchunks, i++;){
+    for (int i= 0; i < mtree->nchunks, i++;){
 
-        mtree_node_t* chk_node = nodes[i];
+        mtree_node_t* chk_node = mtree->chk_nodes[i];
 
         if (strcmp(chk_node->expected_hash, chk_node->computed_hash) == 0)
         {
             comp_chk_hashes[i] = chk_node->expected_hash;
         }
 
-        bpkg_query_t qry = {
-            .hashes = comp_chk_hashes,
-            .len = bpkg->nchunks,
-        };
-        
     }
+
+    bpkg_query_t qry = {
+            .hashes = comp_chk_hashes,
+            .len = mtree->nchunks,
+    };
+
+    return qry;
 }
 
 /**
@@ -172,8 +159,8 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg){
     mtree_node_t* subtree_root = bpkg_get_largest_completed_subtree(bpkg->mtree->root);
     
     bpkg_query_t* qry;
-    qry->hashes = bpkg_get_subtree_chunks(subtree_root, 0);
-    qry->len = mtree_get_nchunks_from_root(subtree_root);
+    qry->hashes = bpkg_get_subtree_chunks(subtree_root);
+    qry->len = mtree_get_nchunks_from_root(subtree_root, bpkg->mtree->height);
 }
 
 /**
@@ -213,9 +200,10 @@ void bpkg_query_destroy(bpkg_query_t* qobj)
  * Deallocates memory at the end of the program,
  * make sure it has been completely deallocated
  */
-void bpkg_t_destroy(bpkg_t* bobj)
+void bpkg_destroy(bpkg_t* bobj)
 {
-    mtree_destroy(bobj->mtree, bobj->nchunks + bobj->nhashes);
+    mtree_t* mtree = bobj->mtree;
+    mtree_destroy(mtree);
     free(bobj);
 }
 

@@ -1,44 +1,19 @@
-#ifndef PEER_DATA_SYNC_H
-#define PEER_DATA_SYNC_H
+#ifndef PEER_2_PEER_PEER_DATA_SYNC_H
+#define PEER_2_PEER_PEER_DATA_SYNC_H
 
-
-// Local Dependencies:
-#include <pkgchk.h>
-#include <btide.h>
-#include <my_utils.h>
-#include <config.h>
-#include <pcomm.h>
-#include <packet.h>
-#include <packet.h>
-#include <peer.h>
-#include <p2p.h>
-
-
-// Standard Linux Dependencies:
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <errno.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <signal.h>
-
+#include <utilities/my_utils.h>
+#include <peer_2_peer/peer_data_sync.h>
+#include <peer_2_peer/packet.h>
 /* Peer and peer pool shared management resources: */
 
-typedef struct peer{
+typedef struct{
     char ip[INET_ADDRSTRLEN];
     int port;
     uint16_t sock_fd;
     pthread_t thread;
 } peer_t;
 
-typedef struct peers{
+typedef struct{
     peer_t** list; // Dynamic array
     size_t npeers_cur; // Current number of peers on local network.
     size_t npeers_max; // Max number of peers on local network.
@@ -53,6 +28,14 @@ enum RequestStatus{
     SUCCESS = 1,  
 };
 
+typedef struct request{
+    pkt_t* pkt;
+    peer_t* peer;
+    enum RequestStatus status;
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+}request_t;
+
 typedef struct request_q{ 
     queue_t* queue;
     size_t count;
@@ -61,13 +44,12 @@ typedef struct request_q{
     int ready;
 }request_q_t;
 
-typedef struct request{
-    packet_t* packet;
-    peer_t* peer;
-    enum RequestStatus status;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-}request_t;
+typedef struct bpkgs{
+    queue_t* ls;
+    uint8_t count;
+    pthread_mutex_t* lock;
+    char* directory;
+}bpkgs_t;
 
 
 /**
@@ -93,7 +75,7 @@ void peer_outgoing_requests_destroy(peer_t* peer, request_q_t* reqs_q);
 
 request_q_t* reqs_q_init() ;
 
-request_t* req_init(packet_t* pkt, peer_t* peer);
+request_t* req_init(pkt_t* pkt, peer_t* peer);
 
 void req_destroy(request_t* req);
 
@@ -104,7 +86,5 @@ request_t* reqs_q_nextup(request_q_t* reqs_q);
 void req_enqueue(request_q_t* reqs_q, request_t* request);
 
 request_t* req_dequeue(request_q_t* reqs_q);
-
-void peer_outgoing_requests_destroy(peer_t* peer, request_q_t* reqs_q);
 
 #endif

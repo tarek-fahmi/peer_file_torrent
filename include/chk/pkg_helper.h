@@ -1,40 +1,10 @@
-#ifndef PEER_HELPER_H
-#define PEER_HELPER_H
-
+#ifndef CHK_PKG_HELPER_H
+#define CHK_PKG_HELPER_H
 
 // Local Dependencies:=
 #include <crypt/sha256.h>
 #include <tree/merkletree.h>
-#include <chk/pkgchk.h>
-#include <chk/pkg_helper.h>
 #include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
-#include <peer_2_peer/peer_server.h>
-#include <peer_2_peer/peer_data_sync.h>
-#include <peer_2_peer/packet.h>
-#include <peer_2_peer/package.h>
-#include <config.h>
-#include <cli.h>
-// Standard Linux Dependencies:
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
 
 // Helper Functions:
 /**
@@ -75,7 +45,7 @@ void bpkg_multiparse(bpkg_t* bpkg, char* startData, char* key, char* rest);
  *
  * @return bpkg, pointer to constructed bpkg object
  */
-void bpkg_unpack(bpkg_t* bpkg);
+int bpkg_unpack(bpkg_t* bpkg);
 
 
 /**
@@ -101,7 +71,6 @@ void chunk_destroy(chunk_t* cobj);
  * @return Largest completed subtree root
  */
 char** bpkg_get_subtree_chunks(mtree_node_t* node);
-}
 
 /**
  * @brief Given a node hash, return the corresponding node if it exists.
@@ -111,7 +80,7 @@ char** bpkg_get_subtree_chunks(mtree_node_t* node);
  * 
  * @returns Node corresponding to the hash we are querying in the merkle (sub)tree, returning -1 if the node doesn't exist.
 */
-mtree_node_t* bpkg_get_node_from_hash(mtree_t* node, char* query_hash);
+mtree_node_t* bpkg_get_node_from_hash(mtree_t* mtree, char* query_hash);
 
 
 #endif

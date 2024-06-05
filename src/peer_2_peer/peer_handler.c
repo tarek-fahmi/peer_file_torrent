@@ -1,4 +1,3 @@
-#include <crypt/sha256.h>
 #include <tree/merkletree.h>
 #include <chk/pkgchk.h>
 #include <chk/pkg_helper.h>
@@ -7,44 +6,6 @@
 #include <peer_2_peer/peer_data_sync.h>
 #include <peer_2_peer/packet.h>
 #include <peer_2_peer/package.h>
-#include <config.h>
-#include <cli.h>
-// Standard Linux Dependencies:
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-void cleanup_peer_handler(void *arg) 
-{
-    peer_thr_args_t *args = (peer_thr_args_t*) arg;
-    if (args->peer != NULL) {
-
-        if (args->peer->sock_fd >= 0) {
-            close(args->peer->sock_fd);
-            args->peer->sock_fd = -1;
-
-            peer_outgoing_requests_destroy(args->peer, args->requests);
-            peers_remove(args->peers, args->peer->ip, args->peer->port);
-        }
-        // Free the peer structure if necessary
-    }
-    // Add more cleanup tasks as needed
-}
 
 void peer_handler(void *args_void) 
 {
@@ -65,15 +26,30 @@ void peer_handler(void *args_void)
     {
         request_t* req_recent = process_request_shared(peer, reqs_q, peers);   
 
-        packet_t* pkt = peer_try_recieve(peer);
+        pkt_t* pkt = peer_try_recieve(peer);
         
         if (pkt != NULL){
-            process_packet_in(peer, pkt, req_recent);
+            process_pkt_in(peer, pkt, bpkgs, req_recent);
         }
         
         pthread_testcancel();
     }
     pthread_cleanup_pop(1);
+}
+
+void peer_cleanup_handler(void *arg) 
+{
+    peer_thr_args_t *args = (peer_thr_args_t*) arg;
+    if (args->peer != NULL) {
+
+        if (args->peer->sock_fd >= 0) {
+            close(args->peer->sock_fd);
+            args->peer->sock_fd = -1;
+
+            peer_outgoing_requests_destroy(args->peer, args->requests);
+            peers_remove(args->peers, args->peer->ip, args->peer->port);
+        }
+    }
 }
 
 void peer_create_thread(peer_t* new_peer, request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs)
@@ -83,6 +59,7 @@ void peer_create_thread(peer_t* new_peer, request_q_t* reqs_q, peers_t* peers, b
     args->peer = new_peer;
     args->requests = reqs_q;
     args->peers = peers;
+    args->bpkgs = bpkgs;
 
     // Create the thread
     int result = pthread_create(&new_peer->thread, NULL, peer_handler, args);
@@ -93,8 +70,7 @@ void peer_create_thread(peer_t* new_peer, request_q_t* reqs_q, peers_t* peers, b
     }
 }
 
-
-packet_t* try_receive(peer_t* peer) 
+pkt_t* peer_try_receive(peer_t* peer) 
 {
     if (!peer || peer->sock_fd < 0) {
         fprintf(stderr, "Invalid peer or socket not initialized.\n");
@@ -106,7 +82,7 @@ packet_t* try_receive(peer_t* peer)
 
     uint8_t *buffer = malloc(PAYLOAD_MAX);
     if (!buffer) {
-        perror("Failed to allocate buffer for receiving packet");
+        perror("Failed to allocate buffer for receiving pkt");
         return NULL;
     }
 
@@ -126,26 +102,40 @@ packet_t* try_receive(peer_t* peer)
         received += n;
     }
 
-    packet_t* pkt = malloc(sizeof(packet_t));
+    pkt_t* pkt = malloc(sizeof(pkt_t));
     if (!pkt) {
-        perror("Failed to allocate packet");
+        perror("Failed to allocate pkt");
         free(buffer);
         return NULL;
     }
-    packet_unmarshall(pkt, buffer);
+    pkt_unmarshall(pkt, buffer);
 
     free(buffer);
     return pkt;
 }
 
-void try_send(peer_t* peer, packet_t* pkt_out)
+request_t* peer_process_request_shared(peer_t* peer, request_q_t* reqs_q, peers_t* peers)
+{
+    pthread_mutex_lock(&reqs_q->lock);
+    request_t* req = req_nextup(reqs_q);
+
+    if (req->peer->port == peer->port && strcmp(req->peer->ip, peer->ip) == 0)
+    {
+        req_dequeue(reqs_q);
+        process_pkt_out(peer, req->pkt);
+    }
+
+    pthread_mutex_unlock(&reqs_q->lock);
+}
+
+void try_send(peer_t* peer, pkt_t* pkt_out)
 {
     if (!peer || peer->sock_fd < 0){
-        perror("Cannot send to peer, peer doesn't exist...");
+        perror("Cannot send to peer, peer doesn't exist...\n");
         return;
     }
     uint8_t buffer[PAYLOAD_MAX];
-    packet_marshall(pkt_out, &buffer);
+    pkt_marshall(pkt_out, &buffer);
     ssize_t nsent;
 
     int total = 0;        // how many bytes we've sent
@@ -162,72 +152,61 @@ void try_send(peer_t* peer, packet_t* pkt_out)
 
     if (total == sizeof(buffer))
     {
-        debug_print("successfully sent entire packet to %d", peer->port);
+        debug_print("successfully sent entire pkt to %d\n", peer->port);
     }
 
     else if (n<0)
     {
-        perror("Failed to send packet...");
-        close(peer->sock_fd);
+        debug_printf("Failed to send pkt.\n");
         return;
     }
 
-    fprintf(stderr, "Sent incomplete packet to %d", peer->port);
+    fprintf(stderr, "Sent incomplete pkt to %d\n", peer->port);
 }
 
 void send_acp(peer_t* peer)
 {
     
-    packet_t pkt = {
-        .msg_code = PKT_MSG_ACP
-    };
-
-    try_send(peer, &pkt);
+    pkt_t* pkt = pkt_create(PKT_MSG_ACP, 0, NULL);
+    try_send(peer, pkt);
 }
 
 void send_ack(peer_t* peer)
 {
-    packet_t pkt = {
-        .msg_code = PKT_MSG_ACP
-    };
-
-    try_send(peer, &pkt);
-}
-
-void send_res(peer_t* peer, packet_t* pkt)
-{
+    
+    pkt_t* pkt = pkt_create(PKT_MSG_ACK, 0, NULL);
     try_send(peer, pkt);
 }
 
-void send_req(peer_t* peer, packet_t* pkt)
+void send_res(peer_t* peer, uint8_t err, payload_t* payload)
 {
+    pkt_t* pkt = pkt_create(PKT_MSG_RES, err , payload);
+    try_send(peer, pkt);
+}
+
+void send_req(peer_t* peer, pkt_t* payload)
+{
+    pkt_t* pkt = pkt_create(PKT_MSG_REQ, 0, payload);
     try_send(peer, pkt);
 }
 
 void send_png(peer_t* peer)
 {
-        packet_t pkt = {
-        .msg_code = PKT_MSG_PNG
-    };
-
-    try_send(peer, &pkt);
+    
+    pkt_t* pkt = pkt_create(PKT_MSG_PNG, 0 , NULL);
+    try_send(peer, pkt);
 }
 
 void send_pog(peer_t* peer)
 {
-        packet_t pkt = {
-        .msg_code = PKT_MSG_POG
-    };
+    pkt_t* pkt = pkt_create(PKT_MSG_POG, 0 , NULL);
 
     try_send(peer, &pkt);
 }
 
 void send_dsn(peer_t* peer)
 {
-        packet_t pkt = {
-        .msg_code = PKT_MSG_DSN
-    };
-
+    pkt_t* pkt = pkt_create(PKT_MSG_DSN, 0 , NULL);
     try_send(peer, &pkt);
 }
 
@@ -235,80 +214,11 @@ int acp_wait_ack(peer_t *peer) {
     
     send_acp(peer);
 
-    packet_t* pkt = try_recieve(peer);
+    pkt_t* pkt = try_recieve(peer);
 
     if (pkt != NULL && pkt->msg_code == PKT_MSG_ACK)
     {
         return 1;
     }
     return 0;
-}
-
-void process_packet_in(peer_t* peer, packet_t* pkt, bpkg_t* bpkgs, request_t* req_recent)
-{
-    switch(pkt->msg_code){
-        case PKT_MSG_PNG:
-            send_pog(peer);
-            break;
-        case PKT_MSG_ACP:
-            send_ack(peer);
-            break;
-        case PKT_MSG_REQ:
-            //TODO: Write get_chunk function.
-            get_chunk(pkt);
-            send_res(peer, pkt);
-            break;
-        case PKT_MSG_DSN:
-            //TODO: Code for ending connection here.
-            break;
-        case PKT_MSG_RES:
-
-            if (pkg_install(pkt_in, peer, bpkgs) < 0)
-            {
-                req_recent->status = FAILED;
-            }
-
-            req_recent->status = SUCCESS
-            pthread_cond_signal(&req_recent->cond);
-
-            
-            
-        default:
-            break;
-    }
-}
-
-void process_packet_out(peer_t* peer, packet_t* pkt)
-{
-    switch(pkt->msg_code){
-        case PKT_MSG_PNG:
-            send_png(peer);
-            break;
-        case PKT_MSG_REQ:
-            send_req(peer, pkt);
-            break;
-        case PKT_MSG_DSN:
-            send_dsn(peer);
-            pthread_cancel(&peer->thread);
-            pthread_join(&peer->thread, NULL);
-            peer = NULL;
-            break;
-        default:
-            break;
-    }
-}
-
-request_t* process_request_shared(peer_t* peer, request_q_t* reqs_q, peers_t* peers)
-{
-    pthread_mutex_lock(&reqs_q->lock);
-    request_t* req = req_nextup(reqs_q);
-
-    if (req->peer->port == peer->port && strcmp(req->peer->ip, peer->ip) == 0)
-    {
-        req_dequeue(reqs_q);
-        process_packet_out(peer, req->packet);
-    }
-
-    pthread_mutex_unlock(&reqs_q->lock);
-
 }

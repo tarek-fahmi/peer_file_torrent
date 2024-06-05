@@ -1,19 +1,12 @@
-#ifndef MY_UTILS_H
-#define MY_UTILS_H
+#ifndef UTILITIES_MY_UTILS_H
+#define UTILITIES_MY_UTILS_H
 
-// Local Dependencies:=
-#include <crypt/sha256.h>
-#include <tree/merkletree.h>
-#include <chk/pkgchk.h>
-#include <chk/pkg_helper.h>
-#include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
-#include <peer_2_peer/peer_server.h>
-#include <peer_2_peer/peer_data_sync.h>
-#include <peer_2_peer/packet.h>
-#include <peer_2_peer/package.h>
-#include <config.h>
-#include <cli.h>
+#ifdef DEBUG
+    #define debug_print(...) printf("DEBUG: " __VA_ARGS__)
+#else
+    #define debug_print(...) do {} while (0)
+#endif
+
 // Standard Linux Dependencies:
 #include <stddef.h>
 #include <stdint.h>
@@ -35,20 +28,12 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 
-#ifdef DEBUG
-    #define debug_print(...) printf("DEBUG: " __VA_ARGS__)
-#else
-    #define debug_print(...) do {} while (0)
-#endif
-
-#define ERR_MISC (0)
-
-typedef struct q_node {
+typedef struct{
     void* data;
     struct q_node *next;
 } q_node_t;
 
-typedef struct queue {
+typedef struct{
     q_node_t* head, *tail;
 }queue_t;
 
@@ -79,7 +64,7 @@ int check_err(int return_value, char* error_msg);
 /* The following code pertains to my queue in linked list ADT, inspired by my code from "Assignment 2: Multi Type Linked List" */
 
 // Initialies an empty queue on the heap, returning a pointer.
-queue_t* q_init(queue_t* q_obj);
+queue_t* q_init();
 
 // Enqueues a queue element, storing data in the end of the linked list and allocating memory.
 void q_enqueue(queue_t* qobj, void* data);

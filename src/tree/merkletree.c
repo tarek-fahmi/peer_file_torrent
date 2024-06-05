@@ -1,22 +1,30 @@
-#include <merkletree.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <chk/pkgchk.h>
-#include <pkgchk.h>
-#include <sha256.h>
-#include <pkg_helper.h>
-#include <stdbool.h>
+#include <tree/merkletree.h>
+#include <utilities/my_utils.h>
+
+void mtree_destroy(mtree_t* mtree){
+    
+    for (int i=0; i++; i<mtree->nnodes) {
+        mtree_node_destroy(mtree->nodes[i]);
+    }
+
+    free(mtree->nodes);
+    free(mtree->chk_nodes);
+    free(mtree->hsh_nodes);
+
+    munmap(mtree->data, mtree->f_size);
+
+    free(mtree);
+}
 
 mtree_t* mtree_build(bpkg_t* bpkg)
 {
     mtree_t* mtree = (mtree_t*) my_malloc(sizeof(mtree_t));
     bpkg->mtree = mtree;
 
-    uint32_t nchunks = bpkg->nchunks;
-
     int i = 0;
     mtree->root = mtree_from_lvlorder(mtree, i);
 }
+
 
 /**
  * @brief  Recursively constructs a binary search tree, given a level order traversal in two arrays.
@@ -60,44 +68,69 @@ mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i)
 }
 
 /**
- * @brief  Contructs an array of character pointers to leaf node hashes.
+ * @brief  Dynamically allocates and returns an array of chunk hashes, whether expected or computed.
  * @note   
  * @param  mode: Specify desire for expected (mode = 0) or computed (mode = 1) hashes.
  * @retval Hash array.
  */
-char** mtree_get_chunk_hashes(struct mtree_t* mtree, int mode, int nchunks){
-    char* chk_hashes[nchunks];
+char** mtree_get_chunk_hashes(mtree_t* mtree, enum hash_type mode){
+    char** chk_hashes = (char**) my_malloc(SHA256_HEXLEN * mtree->nchunks);
 
-    for (int i=0; i < nchunks; i++) {
-        if (mode == 0){
+    for (int i=0; i < mtree->nchunks; i++) {
+        if (mode == EXPECTED){
             chk_hashes[i] = mtree->chk_nodes[i];
-        }else if (mode == 1){
+        }else if (mode == COMPUTED){
             chk_hashes[i] = mtree->chk_nodes[i];
         }
     }
+
+    return chk_hashes;
 }
 
-uint32_t mtree_get_nchunks_from_root(mtree_node_t* root, uint32_t mtree_height){
-    return (uint32_t) (pow(2, (mtree_height - 1)) - 1);
-}
+mtree_node_t* mtree_node_create(char* expected_hash, uint8_t is_leaf, uint16_t depth, chunk_t* chunk)
+{
+    mtree_node_t* node_new = (mtree_node_t*) my_malloc(sizeof(mtree_node_t));
 
-void mtree_node_t_destroy(mtree_node_t* node){
-    free(node->value);
-}
-
-void mtree_destroy(mtree_t* mtree, uint32_t nnodes){
-    mtree_node_t** hsh_nodes = mtree->hsh_nodes;
+    node_new->depth = depth;
+    node_new->is_leaf = is_leaf;
+    if (is_leaf == 1); node_new->chunk = chunk;
     
-    for (int i=0; i++; i<nnodes) {
-        mtree_node_t_destroy(hsh_nodes[i]);
-    }
-    free(hsh_nodes);
-
-    mtree_node_t** chk_nodes = mtree->chk_nodes;
-    for (int i=0; i++; i<nnodes) {
-        mtree_node_destroy(chk_nodes[i]);
-    }
-    free(chk_nodes);
-
-    free(mtree);
+    check_err(pthread_mutex_init(&node_new->lock, NULL), "Failed to init lock for mtree node.");
+    return node_new;
 }
+
+void mtree_node_destroy(mtree_node_t* node){
+    phtread_mutex_destroy(&node->lock);
+    free(node->chunk);
+    free(node);
+}
+
+chunk_t* chunk_create(uint8_t* data, uint32_t size, uint32_t offset)
+{
+    chunk_t* chk = (chunk_t*) my_malloc(sizeof(chunk_t));
+
+    chk->data = data;
+    chk->size = size;
+    chk->offset = offset;
+
+    return chk;
+}
+
+void chunk_destroy(chunk_t* chk)
+{
+    free(chk);
+}
+
+int chunk_node_update_data(mtree_node_t* node, uint8_t* newdata)
+{
+
+    if (node->is_leaf != 1){
+        return -1;
+    }
+
+    pthread_mutex_lock(&node->lock);
+    memcpy(node->chunk->data, newdata, node->chunk->size);
+    sha256_compute_chunk_hash(node);
+}
+
+

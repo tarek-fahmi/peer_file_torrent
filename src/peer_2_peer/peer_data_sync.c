@@ -1,42 +1,12 @@
-#include <crypt/sha256.h>
-#include <tree/merkletree.h>
-#include <chk/pkgchk.h>
-#include <chk/pkg_helper.h>
+
 #include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
 #include <peer_2_peer/peer_data_sync.h>
 #include <peer_2_peer/packet.h>
 #include <peer_2_peer/package.h>
 #include <config.h>
 #include <cli.h>
-// Standard Linux Dependencies:
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
 
-typedef struct request_q{ 
-    queue_t* queue;
-    size_t count;
-    pthread_mutex_t lock;
-    pthread_cond_t cond;
-    int ready;
-}request_q_t;
+
 
 
 /**
@@ -125,50 +95,7 @@ peer_t* peers_find(peers_t *peers, const char *ip, uint16_t port)
     return peer_target;
 }
 
-void peer_outgoing_requests_destroy(peer_t* peer, request_q_t* reqs_q)
-{
-    pthread_mutex_lock(&reqs_q->lock);
-    q_node_t* current = reqs_q->queue->head;
-    q_node_t* prev = NULL;
-
-    while (current != NULL)
-    {
-        request_t req = *(request_t*)current->data;
-
-        if (strcmp(req.peer->ip, peer->ip) == 0 && req.peer->port == peer->port)
-        {
-            q_node_t* temp = current;
-
-            current = current->next;
-
-            if (prev != NULL)
-            {
-                prev->next = current;
-            }
-            else
-            {
-                reqs_q->queue->head = current;
-            }
-
-            if (current == NULL)
-            {
-                reqs_q->queue->tail = prev;
-            }
-
-            free(temp);
-            reqs_q->count -= 1;
-        }
-        else
-        {
-            prev = current;
-            current = current->next;
-        }
-    }
-
-    pthread_mutex_unlock(&reqs_q->lock);
-}
-
-request_q_t* reqs_q_init() 
+request_q_t* reqs_create() 
 {
     request_q_t* req= (request_q_t*)mymalloc(sizeof(request_q_t));
     req->queue = q_init(req->queue); 
@@ -179,17 +106,17 @@ request_q_t* reqs_q_init()
     req->ready = 1;
 }
 
-request_t* req_init(packet_t* pkt, peer_t* peer) 
+request_t* req_create(pkt_t* pkt, peer_t* peer) 
 {
     if (pkt == NULL || peer == NULL) return;
 
     request_t* req= (request_t*)mymalloc(sizeof(request_t));
     
-    req->packet = pkt;
+    req->pkt = pkt;
     req->peer = peer;
     req->status = WAITING;
-    pthread_mutex_init(&req->lock);
-    pthread_cond_init(&req->cond);
+    pthread_mutex_init(&req->lock, NULL);
+    pthread_cond_init(&req->cond, NULL);
     return req;
 }
 

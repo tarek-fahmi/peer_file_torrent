@@ -1,44 +1,31 @@
-#ifndef PKGCHK_H
-#define PKGCHK_H
+#ifndef CHK_PKGCHK_H
+#define CHK_PKGCHK_H
 
-// Local Dependencies:=
-#include <crypt/sha256.h>
-#include <tree/merkletree.h>
 #include <chk/pkgchk.h>
 #include <chk/pkg_helper.h>
+#include <tree/merkletree.h>
 #include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
-#include <peer_2_peer/peer_server.h>
-#include <peer_2_peer/peer_data_sync.h>
-#include <peer_2_peer/packet.h>
-#include <peer_2_peer/package.h>
-#include <config.h>
-#include <cli.h>
-// Standard Linux Dependencies:
 #include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
 
 #define IDENT_MAX (1024)
 #define FILENAME_MAX (256)
+
 #define nchunks_from_depth(d) 1<<(h-1)-1
 
+#define CHUNK_SIZE (4096)
+
+/**
+ * Query object, allows you to assign
+ * hash strings to it.
+ * Typically: malloc N number of strings for hashes
+ *    after malloc the space for each string
+ *    Make sure you deallocate in the destroy function
+ */
+
+typedef struct bpkg_query{
+	char** hashes;
+	size_t len;
+} bpkg_query_t;
 
 // Part 1 Source Code
 
@@ -114,9 +101,7 @@ void bpkg_query_destroy(bpkg_query_t* qobj);
  * Deallocates memory at the end of the program,
  * make sure it has been completely deallocated
  */
-void bpkg_t_destroy(bpkg_t* bobj);
-
-
+void bpkg_destroy(bpkg_t* bobj);
 
 int bpkg_check_chunk(mtree_node_t* node);
 

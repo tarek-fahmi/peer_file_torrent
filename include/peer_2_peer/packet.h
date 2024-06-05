@@ -1,37 +1,8 @@
-#ifndef PACKET_H
-#define PACKET_H
+#ifndef PEER_2_PEER_pkt_H
+#define PEER_2_PEER_pkt_H
 
 #include <crypt/sha256.h>
-#include <tree/merkletree.h>
 #include <chk/pkgchk.h>
-#include <chk/pkg_helper.h>
-#include <utilities/my_utils.h>
-#include <peer_2_peer/peer_handler.h>
-#include <peer_2_peer/peer_data_sync.h>
-#include <peer_2_peer/packet.h>
-#include <peer_2_peer/package.h>
-#include <config.h>
-#include <cli.h>
-// Standard Linux Dependencies:
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-// Additional Linux Dependencies:
-#include <string.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/select.h>
 
 #define PAYLOAD_MAX (4092)
 #define DATA_MAX (2998)
@@ -45,7 +16,7 @@
 #define PKT_MSG_PNG 0xFF
 #define PKT_MSG_POG 0x00
 
-typedef struct payload{
+typedef struct{
     uint32_t offset;
     uint16_t size;
     char hash[SHA256_HEXLEN];
@@ -53,15 +24,25 @@ typedef struct payload{
     uint8_t data[DATA_MAX];
 }payload_t;
 
-typedef struct packet{
+typedef struct{
     uint16_t msg_code;
     uint16_t error;
-    payload_t payload;
-}packet_t;
+    payload_t* payload;
+}pkt_t;
 
 
-void packet_marshall(packet_t* packet, uint8_t* data_marshalled);
+void pkt_marshall(pkt_t* pkt, uint8_t* data_marshalled);
 
-void packet_unmarshall(packet_t* pkt_i, uint8_t *data_marshalled);
+void pkt_unmarshall(pkt_t* pkt_i, uint8_t *data_marshalled);
+
+pkt_t* pkt_create(uint8_t msg, uint8_t err, payload_t* payload);
+
+void pkt_destroy(pkt_t* pkt);
+
+payload_t* payload_create(uint32_t offset, uint16_t size, char* hash, char* ident, uint8_t* data);
+
+void payload_destroy(payload_t* payload);
+
+
 
 #endif
