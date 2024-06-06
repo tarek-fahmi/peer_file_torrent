@@ -4,6 +4,7 @@
 #define SHA256_CHUNK_SZ (64)
 #define SHA256_INT_SZ (8)
 #include <stdint.h>
+#include <tree/merkletree.h>
 
 //Original: https://github.com/LekKit/sha256/blob/master/sha256.h
 struct sha256_compute_data {

@@ -1,10 +1,10 @@
 #include <crypt/sha256.h>
 #include <tree/merkletree.h>
 #include <chk/pkgchk.h>
+#include <chk/pkg_helper.h>
 #include <utilities/my_utils.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <bits/mman-linux.h>
 #include <sys/mman.h>
 #include <stdio.h>
 
@@ -24,32 +24,30 @@ bpkg_t* bpkg_load(const char* path)
 {
     bpkg_t* bpkg = (bpkg_t*) my_malloc(sizeof(bpkg_t));
 
-    struct stat statbuf;
-    if (fstat(path, &statbuf)) {
-        perror("Fstat failure\n");
-    }
-
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
         perror("Cannot open file\n");
         return NULL;
     }
 
-    bpkg->mtree->data = (char*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    struct stat statbuf;
+    if (fstat(fd, &statbuf)) {
+        perror("Fstat failure\n");
+    }
 
-    if (bpkg->mtree->data = MAP_FAILED) {
+    char* bpkg_data = (char*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+    if (bpkg_data == MAP_FAILED) {
         perror("Cannot open file\n");
         return NULL;
     }
 
     close(fd);
 
-    int err = bpkg_unpack(bpkg);
-    if (err < 0)
-    {
-        perror("Unable to parse bpkg file.\n");
-        return NULL;
-    }
+    bpkg_unpack(bpkg, bpkg_data);
+
+    mtree_build(bpkg);
+
     return bpkg;
 }
 
@@ -94,7 +92,7 @@ bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
 bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg)
 {
     char* hashes[SHA256_HEXLEN];
-
+ 
     mtree_t* mtree = bpkg->mtree;
 
     for (int i=0; i < mtree->nnodes; i++)
@@ -107,7 +105,7 @@ bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg)
         .len = mtree->nnodes,
     };
     
-    return;
+    return qry;
 }
 
 /**
@@ -122,10 +120,10 @@ bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg)
     mtree_t* mtree = bpkg->mtree;
     mtree_node_t** nodes = mtree->nodes;
     
-    char* comp_chk_hashes[SHA256_HEXLEN] = (char**) malloc(mtree->nchunks 
-                                                            * SHA256_HEXLEN);
+    char** comp_chk_hashes = (char**) malloc(mtree->nchunks * SHA256_HEXLEN);
  
-    for (int i= 0; i < mtree->nchunks, i++;){
+    for (int i=0; i < mtree->nchunks; i++)
+    {
 
         mtree_node_t* chk_node = mtree->chk_nodes[i];
 

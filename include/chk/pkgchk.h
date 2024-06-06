@@ -8,10 +8,6 @@
 #include <stddef.h>
 
 #define IDENT_MAX (1024)
-#define FILENAME_MAX (256)
-
-#define nchunks_from_depth(d) 1<<(h-1)-1
-
 #define CHUNK_SIZE (4096)
 
 /**

@@ -1,12 +1,25 @@
-#ifndef CLI_H
-#define CLI_H
-
-#include <sys/select.h>
 #include <peer_2_peer/peer_data_sync.h>
+#include <peer_2_peer/peer_handler.h>
+#include <peer_2_peer/packet.h>
+#include <peer_2_peer/package.h>
+#include <cli.h>
+#include <chk/pkgchk.h>
+#include <sys/socket.h>
+#include <tree/merkletree.h>
+#include <utilities/my_utils.h>
 
+// Standard Linux Dependencies:
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+#include <netinet/in.h>
+
+
+/**
+ *@brief Execute command triggered peer connection: Try
+*/
 void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs);
 
-
 /**
  * @brief Add a package to manage.
  * 
@@ -15,10 +28,7 @@ void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers, bpkgs_
  * 
  * @returns -1 if unsuccessful.
 */
-void cli_disconnect(char* ip, int port, request_q_t* reqs);
-
-
-
+void cli_disconnect(char* ip, int port, peers_t* peers, request_q_t* reqs_q);
 /**
  * @brief Add a package to manage.
  * 
@@ -27,7 +37,8 @@ void cli_disconnect(char* ip, int port, request_q_t* reqs);
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_add_package(char* filename);
+void cli_add_package(char* filename, bpkgs_t* bpkgs);
+
 /**
  * @brief Remove a package that is being maintained.
  * 
@@ -35,20 +46,20 @@ int cli_add_package(char* filename);
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_rem_package(char* filename);
+void cli_rem_package(char* ident, bpkgs_t* bpkgs);
 /**
  * @briefReport the statuses of the packages loaded.
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_report_packages();
+void cli_report_packages(bpkgs_t* bpkgs);
 
 /**
  * @brief Lists and pings all connected peers.
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_list_peers();
+void cli_list_peers(peers_t* peers);
 
 /**
  * @brief Requests chunks related to a given hash.
@@ -57,7 +68,7 @@ int cli_list_peers();
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_fetch(char* args);
+void cli_fetch(char* args, bpkgs_t* bpkgs, peers_t* peers, request_q_t* reqs_q);
 
 /**
  * @brief Parses a command, identifying and running valid commands with respective arguments.
@@ -66,38 +77,4 @@ int cli_fetch(char* args);
  * 
  * @returns Intger, 0 if valid command, -1 if invalid command.
 */
-int cli_command_manager(char* input);
-int cli_process_command(char* input, request_q_t reqs_q, peers_t peers, bpkgs_t bpkgs) {
-    char* ip = (char*)my_malloc(INET_ADDRSTRLEN);
-    uint32_t port;
-    char* arguments;
-    char* command = strtok_r(input, " ", &arguments);
-
-    if (strcmp(command, "CONNECT") == 0) {
-        sscanf(arguments, "%s:%u", ip, &port);
-    } else if (strcmp(command, "DISCONNECT") == 0) {
-        sscanf(arguments, "%s:%u", ip, &port);
-        cli_disconnect(ip, port, reqs_q);
-    } else if (strcmp(command, "ADDPACKAGE") == 0) {
-        cli_add_package(arguments);
-    } else if (strcmp(command, "REMPACKAGE") == 0) {
-        cli_rem_package(arguments);
-    } else if (strcmp(command, "PACKAGES") == 0) {
-        cli_report_packages();
-    } else if (strcmp(command, "PEERS") == 0) {
-        cli_list_peers();
-    } else if (strcmp(command, "FETCH") == 0) {
-        cli_fetch(arguments);
-    } else if (strcmp(command, "QUIT") == 0) {
-        free(ip);
-        exit(EXIT_SUCCESS);
-    } else {
-        free(ip);
-        return -1;
-    }
-
-    free(ip);
-    return 0;
-}
-
-#endif
+void cli_process_command(char* input, request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs);

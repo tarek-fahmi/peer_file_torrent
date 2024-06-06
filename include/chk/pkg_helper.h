@@ -5,6 +5,7 @@
 #include <crypt/sha256.h>
 #include <tree/merkletree.h>
 #include <utilities/my_utils.h>
+#include <string.h>
 
 // Helper Functions:
 /**
@@ -45,7 +46,7 @@ void bpkg_multiparse(bpkg_t* bpkg, char* startData, char* key, char* rest);
  *
  * @return bpkg, pointer to constructed bpkg object
  */
-int bpkg_unpack(bpkg_t* bpkg);
+void bpkg_unpack(bpkg_t* bpkg, char* dataStart);
 
 
 /**
@@ -70,7 +71,7 @@ void chunk_destroy(chunk_t* cobj);
  * @param size, the total number of nodes 
  * @return Largest completed subtree root
  */
-char** bpkg_get_subtree_chunks(mtree_node_t* node);
+char** bpkg_get_subtree_chunks(mtree_node_t* node, int* size);
 
 /**
  * @brief Given a node hash, return the corresponding node if it exists.

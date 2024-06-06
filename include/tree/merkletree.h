@@ -4,6 +4,9 @@
 #define CHUNK_SIZE (4096)
 #define SHA256_HEXLEN (64)
 
+#include <utilities/my_utils.h>
+#include <stdint.h>
+
 typedef struct chunk_t{
     uint8_t* data;
 	uint32_t size;
@@ -17,6 +20,8 @@ typedef struct mtree_node {
     struct mtree_node* left;
     struct mtree_node* right;
     uint16_t depth;
+    uint16_t height;
+    
     uint32_t key[2];
     
     chunk_t* chunk;
@@ -26,7 +31,7 @@ typedef struct mtree_node {
 }mtree_node_t;
 
 typedef struct mtree{// AKA: Binary Hash Tree
-    struct merkle_tree_node* root;
+    struct mtree_node_t* root;
     
     uint16_t height;
     uint32_t nnodes;
@@ -57,7 +62,7 @@ typedef struct bpkg_obj{
 	char* filename;
 	
 	mtree_t* mtree; // Contains pointers to hashes leaf nodes.
-} bpkg_t;
+}bpkg_t;
 
 mtree_t* mtree_build(bpkg_t* bpkg);
 
@@ -74,5 +79,7 @@ char** mtree_get_chunk_hashes(mtree_t* mtree, enum hash_type mode);
 void mtree_node_destroy(mtree_node_t* node);
 
 void mtree_destroy(mtree_t* mtree);
+
+int mtree_get_nchunks_from_root(mtree_node_t* node);
 
 #endif // (TREE_MERKLETREE_H)

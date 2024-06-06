@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 // Local Dependencies:
 #include <fcntl.h>
 #include <tree/merkletree.h>
@@ -8,6 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 // Additional Linux Dependencies:
 #include <string.h>
 #include <math.h>
@@ -25,14 +28,16 @@
  * @param  rest: Pointer to the rest of the file.
  * @retval None
  */
-void load_chunk(mtree_node_t* node, char* dataStart, char* rest){
-    chunk_obj* chunk = (chunk_obj*) (node->value);
+void load_chunk(mtree_node_t* node, char* dataStart){
+    chunk_t* chunk = (node->chunk);
+    
+    char* rest;
+    char* hash_temp = strtok_r(dataStart, ",", &rest);
 
-    char* hash_temp = truncate_string((dataStart, ",", &rest), SHA256_HEXLEN);
     strcpy(node->expected_hash, hash_temp);
 
-    chunk->offset = (uint32_t) strtoi(strtok_r(dataStart, ",", &rest));
-    chunk->size = (uint32_t) strtoi(strtok_r(dataStart, ",", &rest));
+    chunk->offset = (uint32_t) strtol(dataStart, &dataStart, 10);
+    chunk->size = (uint32_t) strtol(dataStart, &dataStart, 10);
 }
 
 /**
@@ -46,23 +51,25 @@ void load_chunk(mtree_node_t* node, char* dataStart, char* rest){
 void bpkg_monoparse(bpkg_t* bpkg, char* dataStart, char* key,
                     char* rest) {
 
-    char* data = strtok_r(dataStart, "\n", &rest);
+    mtree_t* mtree = bpkg->mtree;
+
+
+    char* data = strtok_r(dataStart, "\n", &dataStart);
     if (strcmp(key, "ident") == 0) {
         bpkg->ident = truncate_string(data, IDENT_MAX);
 
     } else if (strcmp(key, "filename") == 0) {
-        truncate_strint(data, FILENAME_MAX);
+        truncate_string(data, FILENAME_MAX);
         bpkg->filename = data;
 
     } else if (strcmp(key, "size") == 0) {
-        bpkg->size = strtoi(data);
+        mtree->f_size = strtol(data, &data, 10);
 
     } else if (strcmp(key, "nhashes") == 0) {
-        bpkg->nhashes = strtoi(data);
-        bpkg->hashes = (char**) malloc(sizeof(char*) * bpkg->nchunks);
+        mtree->nhashes = strtol(data, &data, 10);
 
     } else if (strcmp(key, "nchunks") == 0) {
-        bpkg->nchunks = strtoi(data);
+        mtree->nchunks = strtol(data, &data, 10);
     }
 }
 
@@ -76,27 +83,33 @@ void bpkg_monoparse(bpkg_t* bpkg, char* dataStart, char* key,
  */
 void bpkg_multiparse(bpkg_t* bpkg, char* startData, char* key, char* rest)
 {
-    if (bpkg->nhashes != NULL && strcmp(key, "hashes") == 0) {
-        for (int i = 0; i < bpkg->nhashes, i++;) {
+    if (bpkg->mtree->nhashes && strcmp(key, "hashes") == 0) 
+    {
+        for (int i = 0; i < bpkg->mtree->nhashes; i++) 
+        {
             mtree_node_t* node = (mtree_node_t*)malloc(sizeof(mtree_node_t));
 
-            char* buffer = string_truncate(strtok_r(startData, "\n", &rest), SHA256_HEXLEN);
+
+            strtok_r(rest, "\n", &rest);
+            char* buffer = strtok_r(rest, "\n", &rest);
             node->is_leaf = 1;
 
-            strcpy(node->expected_hash, buffer);
-            bpkg->hashes[i] = &node->expected_hash;
-            bpkg->mtree->leaf_nodes[i] = node;
+            memcpy(node->expected_hash, buffer, SHA256_HEXLEN);
+            bpkg->mtree->chk_nodes[i] = node;
         }
-    } else if (bpkg->nchunks != NULL && strcmp(key, "chunks") == 0) {
-        for (int i = 0; i < bpkg->nhashes, i++;) {
+    } else if (bpkg->mtree->nchunks && strcmp(key, "chunks") == 0) 
+    {
+        for (int i = 0; i < bpkg->mtree->nhashes; i++) 
+        {
             mtree_node_t* node = (mtree_node_t*)malloc(sizeof(mtree_node_t));
 
-            char* buffer = string_truncate(strtok_r(startData, "\n", &rest), SHA256_HEXLEN);
+            char* buffer = truncate_string(strtok_r(rest, "\n", &rest), SHA256_HEXLEN);
             node->is_leaf = 0;
-            node->value = (void*) chunk_parse(node, startData, rest);
 
-            strcpy(node->expected_hash, buffer);
-            bpkg->mtree->leaf_nodes[i] = node;
+            load_chunk(node, startData);
+
+            memcpy(node->expected_hash, buffer, SHA256_HEXLEN);
+            bpkg->mtree->chk_nodes[i] = node;
         }
     }
 }
@@ -109,7 +122,7 @@ void bpkg_multiparse(bpkg_t* bpkg, char* startData, char* key, char* rest)
  *
  * @return bpkg, pointer to constructed bpkg object
  */
-bpkg_t* bpkg_unpack(bpkg_t* bpkg, char* bpkgString)
+void bpkg_unpack(bpkg_t* bpkg, char* bpkgString)
 {
     char* key;
     char* dataStart;
@@ -133,16 +146,40 @@ bpkg_t* bpkg_unpack(bpkg_t* bpkg, char* bpkgString)
  */
 mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root){
 
-    if (root->is_completed){
+    if (root->is_complete){
         return root;
-    }else if(root->left->is_completed){
-        bpkg_get_min_completed_hashes(root->left);
-    }else if (root->right->is_completed){
-        bpkg_get_min_completed_hashes(root->right);
-    }else{
-       printf("No nodes are yet completed...");
-       return NULL;
+    }else if(root->is_leaf)
+    {
+        return NULL;
+        debug_print("No nodes are completed...");
     }
+    else if(root->left->is_complete){
+        return root;
+    }else if (root->right->is_complete){
+        return root;
+    }else{
+        mtree_node_t* left = bpkg_get_largest_completed_subtree(root->left);
+        mtree_node_t* right = bpkg_get_largest_completed_subtree(root->right);
+        if (left != NULL)
+        {
+            if (right != NULL)
+            {
+                if (left->depth >= right->depth)
+                {
+                    return left;
+                }
+                else{
+                    return right;
+                }
+            }
+            return left;
+        }
+        else if (right != NULL)
+        {
+            return right;
+        }
+    }
+    
 }
 
 /**
@@ -150,7 +187,7 @@ mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root){
  * with a lead node, and any dynamically allocated
  * attributes.
 */
-void bpkg_chunk_destroy(struct chunk_obj* cobj){
+void bpkg_chunk_destroy(chunk_t* cobj){
     free(cobj->data);
     free(cobj);
 }

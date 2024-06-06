@@ -3,6 +3,7 @@
 
 #include <peer_2_peer/peer_data_sync.h>
 #include <peer_2_peer/peer_handler.h>
+#include <config.h>
 
 typedef struct server_thr_args{
     struct sockaddr_in addr_obj;

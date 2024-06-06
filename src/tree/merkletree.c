@@ -1,5 +1,7 @@
 #include <tree/merkletree.h>
 #include <utilities/my_utils.h>
+#include <crypt/sha256.h>
+#include <sys/mman.h>
 
 void mtree_destroy(mtree_t* mtree){
     
@@ -22,6 +24,26 @@ mtree_t* mtree_build(bpkg_t* bpkg)
     bpkg->mtree = mtree;
 
     int i = 0;
+
+    int fd = open(bpkg->filename, O_RDONLY);
+    if (fd < 0) {
+        perror("Cannot open file\n");
+        return NULL;
+    }
+
+    struct stat statbuf;
+    if (fstat(fd, &statbuf)) {
+        perror("Fstat failure\n");
+    }
+
+    bpkg->mtree->data = (uint8_t*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+    if (bpkg->mtree->data == MAP_FAILED) {
+        perror("Cannot open file\n");
+        return NULL;
+    }
+
+    close(fd);
     mtree->root = mtree_from_lvlorder(mtree, i);
 }
 
@@ -78,9 +100,9 @@ char** mtree_get_chunk_hashes(mtree_t* mtree, enum hash_type mode){
 
     for (int i=0; i < mtree->nchunks; i++) {
         if (mode == EXPECTED){
-            chk_hashes[i] = mtree->chk_nodes[i];
+            chk_hashes[i] = mtree->chk_nodes[i]->expected_hash;
         }else if (mode == COMPUTED){
-            chk_hashes[i] = mtree->chk_nodes[i];
+            chk_hashes[i] = mtree->chk_nodes[i]->computed_hash;
         }
     }
 
@@ -93,14 +115,17 @@ mtree_node_t* mtree_node_create(char* expected_hash, uint8_t is_leaf, uint16_t d
 
     node_new->depth = depth;
     node_new->is_leaf = is_leaf;
-    if (is_leaf == 1); node_new->chunk = chunk;
+    if (is_leaf == 1)
+    {
+        node_new->chunk = chunk;
+    } 
     
     check_err(pthread_mutex_init(&node_new->lock, NULL), "Failed to init lock for mtree node.");
     return node_new;
 }
 
 void mtree_node_destroy(mtree_node_t* node){
-    phtread_mutex_destroy(&node->lock);
+    pthread_mutex_destroy(&node->lock);
     free(node->chunk);
     free(node);
 }
@@ -134,3 +159,7 @@ int chunk_node_update_data(mtree_node_t* node, uint8_t* newdata)
 }
 
 
+int mtree_get_nchunks_from_root(mtree_node_t* node)
+{
+    return pow(2, node->height + 1) -1;
+}

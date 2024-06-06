@@ -4,9 +4,26 @@
 #include <peer_2_peer/peer_data_sync.h>
 #include <peer_2_peer/peer_handler.h>
 #include <peer_2_peer/peer_server.h>
+#include <netinet/in.h>
+#include <peer_2_peer/peer_data_sync.h>
+#include <peer_2_peer/peer_handler.h>
+#include <peer_2_peer/packet.h>
+#include <peer_2_peer/package.h>
+#include <chk/pkgchk.h>
+#include <sys/socket.h>
+#include <tree/merkletree.h>
 #include <utilities/my_utils.h>
+#include <cli.h>
+// Standard Linux Dependencies:
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
-void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers);
+
+/**
+ *@brief Execute command triggered peer connection: Try
+*/
+void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs);
 
 /**
  * @brief Add a package to manage.
@@ -16,7 +33,7 @@ void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers);
  * 
  * @returns -1 if unsuccessful.
 */
-void cli_disconnect(peers_t* peers, char* ip, int port);
+void cli_disconnect(char* ip, int port, peers_t* peers, request_q_t* reqs_q);
 
 /**
  * @brief Add a package to manage.
@@ -26,7 +43,7 @@ void cli_disconnect(peers_t* peers, char* ip, int port);
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_add_package(char* arguments);
+void cli_add_package(char* filename, bpkgs_t* bpkgs);
 
 /**
  * @brief Remove a package that is being maintained.
@@ -35,20 +52,21 @@ int cli_add_package(char* arguments);
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_rem_package(char* filename);
+void cli_rem_package(char* ident, bpkgs_t* bpkgs);
+
 /**
  * @briefReport the statuses of the packages loaded.
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_report_packages();
+void cli_report_packages(bpkgs_t* bpkgs);
 
 /**
  * @brief Lists and pings all connected peers.
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_list_peers();
+void cli_list_peers(peers_t* peers);
 
 /**
  * @brief Requests chunks related to a given hash.
@@ -57,7 +75,7 @@ int cli_list_peers();
  * 
  * @returns -1 if unsuccessful.
 */
-int cli_fetch(char* args);
+void cli_fetch(char* args, bpkgs_t* bpkgs, peers_t* peers, request_q_t* reqs_q);
 
 /**
  * @brief Parses a command, identifying and running valid commands with respective arguments.
@@ -66,6 +84,6 @@ int cli_fetch(char* args);
  * 
  * @returns Intger, 0 if valid command, -1 if invalid command.
 */
-int cli_process_command(char* input);
+void cli_process_command(char* input, request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs);
 
 #endif

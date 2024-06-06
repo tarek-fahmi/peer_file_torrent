@@ -26,7 +26,7 @@ void peer_handler(void *args_void)
     {
         request_t* req_recent = process_request_shared(peer, reqs_q, peers);   
 
-        pkt_t* pkt = peer_try_recieve(peer);
+        pkt_t* pkt = peer_try_receive(peer);
         
         if (pkt != NULL){
             process_pkt_in(peer, pkt, bpkgs, req_recent);
@@ -62,7 +62,7 @@ void peer_create_thread(peer_t* new_peer, request_q_t* reqs_q, peers_t* peers, b
     args->bpkgs = bpkgs;
 
     // Create the thread
-    int result = pthread_create(&new_peer->thread, NULL, peer_handler, args);
+    int result = pthread_create(&new_peer->thread, NULL, ((void*) &peer_handler), args);
     if (result != 0) {
         perror("Thread creation failed....");
         free(args); 
@@ -103,6 +103,7 @@ pkt_t* peer_try_receive(peer_t* peer)
     }
 
     pkt_t* pkt = malloc(sizeof(pkt_t));
+
     if (!pkt) {
         perror("Failed to allocate pkt");
         free(buffer);
@@ -117,11 +118,11 @@ pkt_t* peer_try_receive(peer_t* peer)
 request_t* peer_process_request_shared(peer_t* peer, request_q_t* reqs_q, peers_t* peers)
 {
     pthread_mutex_lock(&reqs_q->lock);
-    request_t* req = req_nextup(reqs_q);
+    request_t* req = reqs_nextup(reqs_q);
 
-    if (req->peer->port == peer->port && strcmp(req->peer->ip, peer->ip) == 0)
+    if (req != NULL && req->peer->port == peer->port && strcmp(req->peer->ip, peer->ip) == 0)
     {
-        req_dequeue(reqs_q);
+        reqs_dequeue(reqs_q);
         process_pkt_out(peer, req->pkt);
     }
 
@@ -135,10 +136,10 @@ void try_send(peer_t* peer, pkt_t* pkt_out)
         return;
     }
     uint8_t buffer[PAYLOAD_MAX];
-    pkt_marshall(pkt_out, &buffer);
+    pkt_marshall(pkt_out, buffer);
     ssize_t nsent;
 
-    int total = 0;        // how many bytes we've sent
+    int total = 0;
     int bytesleft = sizeof(buffer);
     int n;
 
@@ -157,7 +158,7 @@ void try_send(peer_t* peer, pkt_t* pkt_out)
 
     else if (n<0)
     {
-        debug_printf("Failed to send pkt.\n");
+        debug_print("Failed to send pkt.\n");
         return;
     }
 
@@ -221,4 +222,103 @@ int acp_wait_ack(peer_t *peer) {
         return 1;
     }
     return 0;
+}
+
+void process_pkt_in(peer_t* peer, pkt_t* pkt_in, bpkg_t* bpkgs, request_t* req_recent)
+{
+    int err = 0;
+    payload_t* payload;
+    switch(pkt_in->msg_code)
+    {
+        case PKT_MSG_PNG:
+            send_pog(peer);
+            break;
+
+        case PKT_MSG_ACP:
+            send_ack(peer);
+            break;
+
+        // Request payload recieved:
+        case PKT_MSG_REQ:
+            //Try to retrieve the package chunk requested by this peer:
+            payload = payload_get_res_for_req(pkt_in->payload, bpkgs_mngr);
+            if (payload == NULL)
+            {
+                err = -1;
+            }
+            //Send requesting peer the result of the search:
+            send_res(peer, err, payload);
+            debug_print("Sent P[%d] the requested chunk if exists...", peer->port);
+            break;
+
+        case PKT_MSG_DSN:
+            send_dsn(peer);
+            pthread_exit((void* )0);
+            break;
+
+        case PKT_MSG_RES:
+
+            if (pkt_install(pkt_in, peer, bpkgs_mngr) < 0) {
+                req_recent->status = FAILED;
+                debug_print("Failed to install pkt...\n");
+                break;
+            }
+
+            debug_print("Successfully recieved and installed packet from peer!"\n);
+            req_recent->status = SUCCESS;
+            pthread_cond_signal(&req_recent->cond);
+            break;
+   
+        default:
+            break;
+    }
+}
+
+void process_pkt_out(peer_t* peer, pkt_t* pkt)
+{
+    switch(pkt->msg_code){
+        case PKT_MSG_PNG:
+            send_png(peer);
+            break;
+        case PKT_MSG_REQ:
+            send_req(peer, pkt);
+            break;
+        case PKT_MSG_DSN:
+            send_dsn(peer);
+            pthread_cancel(&peer->thread);
+            pthread_join(&peer->thread, NULL);
+            peer = NULL;
+            break;
+        default:
+            break;
+    }
+}
+
+request_t* process_request_shared(peer_t* peer, request_q_t* reqs_q, peers_t* peers) {
+    pthread_mutex_lock(&reqs_q->lock);
+    request_t* req = reqs_nextup(reqs_q);
+
+    if (req != NULL && req->peer->port == peer->port) {
+        uint16_t code = req->pkt->msg_code;
+
+        switch (code) {
+            case PKT_MSG_PNG:
+                send_png(peer);
+                break;
+            case PKT_MSG_ACP:
+                send_acp(peer);
+                break;
+            case PKT_MSG_REQ:
+                try_send(peer, req->pkt);
+                break;
+            case PKT_MSG_DSN:
+                send_dsn(peer);
+                break;
+        }
+
+        reqs_dequeue(reqs_q);
+    }
+
+    pthread_mutex_unlock(&reqs_q->lock);
+    return req;
 }

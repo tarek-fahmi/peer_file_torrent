@@ -2,6 +2,7 @@
 #define PEER_2_PEER_pkt_H
 
 #include <crypt/sha256.h>
+#include <peer_2_peer/peer_data_sync.h>
 #include <chk/pkgchk.h>
 
 #define PAYLOAD_MAX (4092)
@@ -16,7 +17,7 @@
 #define PKT_MSG_PNG 0xFF
 #define PKT_MSG_POG 0x00
 
-typedef struct{
+typedef struct payload{
     uint32_t offset;
     uint16_t size;
     char hash[SHA256_HEXLEN];

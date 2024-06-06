@@ -26,7 +26,7 @@ void send_acp(peer_t* peer);
 
 void send_ack(peer_t* peer);
 
-void send_res(peer_t* peer, uint8_t err, pkt_t* pkt);
+void send_res(peer_t* peer, uint8_t err, payload_t* payload);
 
 void send_req(peer_t* peer, pkt_t* pkt);
 

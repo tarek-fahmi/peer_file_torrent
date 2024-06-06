@@ -1,4 +1,3 @@
-
 #include <utilities/my_utils.h>
 #include <peer_2_peer/peer_data_sync.h>
 #include <peer_2_peer/packet.h>
@@ -7,57 +6,35 @@
 #include <cli.h>
 
 
-
-
 /**
  * @brief Initialize the peer list, setting every element in the peer list to NULL.
  * @params: peer list and max number of peers for the program to reference.
 */
-void peer_list_init(peers_t *peers, size_t max_peers) 
+peers_t* peer_list_create(size_t max_peers) 
 {
+    peers_t* peers = (peers_t*) my_malloc(sizeof(peers_t));
+
     peers->npeers_cur = 0;
     pthread_mutex_init(&peers->lock, NULL);
-    peers->list = (peers_t**) my_malloc(sizeof(peer_t*) * max_peers);
+    peers->list = (peer_t**) my_malloc(sizeof(peer_t*) * max_peers);
 
     // Initialize all peers to NULL
     for(int i=0; i <max_peers; i++){
         peers->list[i] = NULL;
     }
+    return peers;
 }
 
-void peer_init(peer_t* peer, char* ip, int port)
+peer_t* peer_create(char* ip, int port)
 {
-        peer->port = port;
-        memcpy(peer->ip, ip, sizeof(peer->ip));
-        
-        pthread_create(&peer->thread);
+    peer_t* peer = my_malloc(sizeof(peer_t));
+
+    peer->port = port;
+    memcpy(peer->ip, ip, INET_ADDRSTRLEN);
+    
+    return peer;
 }
 
-/**
- * @brief Add a peer to the list of peers, initializing its attributes based on the arguments provided.
- *         This will be called in the connect function...
-*/
-void peers_add(peers_t *peers, peer_t* new_peer) 
-{
-    pthread_mutex_lock(&peers->lock);
-
-    if(peers->npeers_cur >= peers->npeers_max - 1){
-        debug_print("Cannot add peer: max peers connected...");
-        pthread_mutex_unlock(&peers->lock);
-        return;
-    }
-
-    for(int i = 0; i < peers->npeers_max; i++)
-    {
-        if (peers->list[i] == NULL)
-        {
-            peers->list[i] = new_peer;
-            break;
-        }
-    }
-    peers->npeers_cur += 1;
-    pthread_mutex_unlock(&peers->lock);
-}
 
 // Remove a peer from the peer list
 void peers_remove(peers_t *peers, char* ip, int port) 
@@ -95,22 +72,51 @@ peer_t* peers_find(peers_t *peers, const char *ip, uint16_t port)
     return peer_target;
 }
 
+
+/**
+ * @brief Add a peer to the list of peers, initializing its attributes based on the arguments provided.
+ *         This will be called in the connect function...
+*/
+void peers_add(peers_t *peers, peer_t* new_peer) 
+{
+    pthread_mutex_lock(&peers->lock);
+
+    if(peers->npeers_cur >= peers->npeers_max - 1){
+        debug_print("Cannot add peer: max peers connected...");
+        pthread_mutex_unlock(&peers->lock);
+        return;
+    }
+
+    for(int i = 0; i < peers->npeers_max; i++)
+    {
+        if (peers->list[i] == NULL)
+        {
+            peers->list[i] = new_peer;
+            break;
+        }
+    }
+    peers->npeers_cur += 1;
+    pthread_mutex_unlock(&peers->lock);
+}
+
 request_q_t* reqs_create() 
 {
-    request_q_t* req= (request_q_t*)mymalloc(sizeof(request_q_t));
-    req->queue = q_init(req->queue); 
+    request_q_t* req= (request_q_t*)my_malloc(sizeof(request_q_t));
+    req->queue = q_init(); 
 
     pthread_mutex_init(&req->lock, NULL);
-    pthread_cond_init(&req->lock, NULL);
+    pthread_cond_init(&req->cond, NULL);
     req->count = 0;
     req->ready = 1;
 }
 
 request_t* req_create(pkt_t* pkt, peer_t* peer) 
 {
-    if (pkt == NULL || peer == NULL) return;
+    if (pkt == NULL || peer == NULL){
+        return NULL;
+    }
 
-    request_t* req= (request_t*)mymalloc(sizeof(request_t));
+    request_t* req= (request_t*)my_malloc(sizeof(request_t));
     
     req->pkt = pkt;
     req->peer = peer;
@@ -122,7 +128,10 @@ request_t* req_create(pkt_t* pkt, peer_t* peer)
 
 void req_destroy(request_t* req)
 {
-    
+    pthread_cond_destroy(&req->cond);
+    pthread_mutex_destroy(&req->lock);
+    pkt_destroy(req->pkt);
+    return;
 }
 
 void reqs_destroy(request_q_t* reqs_q)
@@ -134,23 +143,30 @@ void reqs_destroy(request_q_t* reqs_q)
     return;
 }
 
-request_t* reqs_q_nextup(request_q_t* reqs_q)
+request_t* reqs_nextup(request_q_t* reqs_q)
 {
-    if (reqs_q->queue->head != NULL);
-    return (request_t*)reqs_q->queue->head->data;
-    return;
+    if (reqs_q->queue->head != NULL)
+    {
+        return (request_t*)reqs_q->queue->head->data;
+    }
+    return NULL;
 }
 
-void req_enqueue(request_q_t* reqs_q, request_t* request)
+void reqs_enqueue(request_q_t* reqs_q, request_t* request)
 {
     if (reqs_q == NULL || request == NULL) return;
     q_enqueue(reqs_q->queue, (void*)&request);
     reqs_q->count += 1;
 }
 
-request_t* req_dequeue(request_q_t* reqs_q)
+request_t* reqs_dequeue(request_q_t* reqs_q)
 {
-    if (reqs_q == NULL) return;
+    if (reqs_q == NULL)
+    {
+        return NULL;
+    }
+    
+
     void* data = q_dequeue(reqs_q->queue);
     request_t* req = ((request_t*)data);
 

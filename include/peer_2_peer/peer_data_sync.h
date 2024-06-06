@@ -47,7 +47,7 @@ typedef struct request_q{
 typedef struct bpkgs{
     queue_t* ls;
     uint8_t count;
-    pthread_mutex_t* lock;
+    pthread_mutex_t lock;
     char* directory;
 }bpkgs_t;
 
@@ -73,18 +73,18 @@ peer_t* peers_find(peers_t *peers, const char *ip, uint16_t port);
 
 void peer_outgoing_requests_destroy(peer_t* peer, request_q_t* reqs_q);
 
-request_q_t* reqs_q_init() ;
+request_q_t* reqs_create() ;
 
-request_t* req_init(pkt_t* pkt, peer_t* peer);
+request_t* req_create(pkt_t* pkt, peer_t* peer);
 
 void req_destroy(request_t* req);
 
 void reqs_destroy(request_q_t* reqs_q);
 
-request_t* reqs_q_nextup(request_q_t* reqs_q);
+request_t* reqs_nextup(request_q_t* reqs_q);
 
-void req_enqueue(request_q_t* reqs_q, request_t* request);
+void reqs_enqueue(request_q_t* reqs_q, request_t* request);
 
-request_t* req_dequeue(request_q_t* reqs_q);
+request_t* reqs_dequeue(request_q_t* reqs_q);
 
 #endif
