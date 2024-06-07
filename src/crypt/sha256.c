@@ -1,9 +1,10 @@
 
 #include <crypt/sha256.h>
-#include <pkgchk.h>
+#include <chk/pkgchk.h>
+#include <tree/merkletree.h>
 #include <string.h>
 #include <stdio.h>
-#include <my_utils.h>
+#include <utilities/my_utils.h>
 
 #define SHA256K 64
 #define rotate_r(val, bits) (val >> bits | val << (32 - bits))

@@ -82,12 +82,12 @@ int check_null(void* obj){
 }
 
 
-check(int return_value, char* error_msg){
+int check_err(int return_value, char* error_msg){
     if (return_value < 0){
         fprintf(stderr, "%s", error_msg);
         exit(EXIT_FAILURE);
     }
-    return;
+    return-1;
 }
 
 

@@ -92,7 +92,7 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash, enum search_mode mode);
+bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash);
 
 /**
  * Deallocates the query result after it has been constructed from
@@ -104,7 +104,7 @@ void bpkg_query_destroy(bpkg_query_t* qobj);
  * Deallocates memory at the end of the program,
  * make sure it has been completely deallocated
  */
-void bpkg_destroy(bpkg_t* bobj);
+void bpkg_obj_destroy(bpkg_t* bobj);
 
 int bpkg_check_chunk(mtree_node_t* node);
 

@@ -8,16 +8,16 @@ INCLUDE=-Iinclude
 # Required for Part 1 - Make sure it outputs a .o file
 # to either objs/ or ./
 # In your directory
-pkgchk.o: src/chk/pkgchk.c
+pkgchk.o: src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/crypt/sha256.c src/utilities/my_utils.c
 	$(CC) -c $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS)
 
 
-pkgchecker: src/pkgmain.c src/chk/pkgchk.c
+pkgchecker: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c
 	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
 
 # Required for Part 2 - Make sure it outputs `btide` file
 # in your directory ./
-btide: src/btide.c
+btide: src/btide.c src/cli.c src/config.c src/peer_data_sync.c src/peer_2 src/tree/merkletree.c
 	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
 
 # Alter your build for p1 tests to build unit-tests for your

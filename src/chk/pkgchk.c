@@ -71,11 +71,12 @@ bpkg_t* bpkg_load(const char* path)
 bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
 {
     bpkg_query_t qobj;
+    qobj.hashes = my_malloc(sizeof(char*) * 16);
     mtree_t* mtree = bpkg->mtree;
 
     if (access(bpkg->filename, F_OK) == 0) 
     {
-    qobj.hashes[0] = "File exists";
+        qobj.hashes[0] = "File exists";
     } 
     else 
     {
@@ -131,7 +132,6 @@ bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg)
 {
 
     mtree_t* mtree = bpkg->mtree;
-    mtree_node_t** nodes = mtree->nodes;
     
     char** comp_chk_hashes = (char**)malloc(mtree->nchunks * sizeof(char*));
     int count = 0;
@@ -164,7 +164,7 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg){
     mtree_node_t* subtree_root = bpkg_get_largest_completed_subtree(bpkg->mtree->root);
     
     bpkg_query_t qry;
-    qry.hashes = bpkg_get_subtree_chunks(subtree_root);
+    qry.hashes = bpkg_get_subtree_chunks(subtree_root, bpkg->mtree->height);
     qry.len = mtree_get_nchunks_from_root(subtree_root, bpkg->mtree->height);
     return qry;
 }
@@ -180,7 +180,7 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg){
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash, enum search_mode mode)
+bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
 {
 
     mtree_node_t* node = bpkg_find_node_from_hash(bpkg->mtree, query_hash, EXPECTED);
@@ -209,7 +209,7 @@ void bpkg_query_destroy(bpkg_query_t* qobj)
  * Deallocates memory at the end of the program,
  * make sure it has been completely deallocated
  */
-void bpkg_destroy(bpkg_t* bobj)
+void bpkg_obj_destroy(bpkg_t* bobj)
 {
     mtree_t* mtree = bobj->mtree;
     mtree_destroy(mtree);

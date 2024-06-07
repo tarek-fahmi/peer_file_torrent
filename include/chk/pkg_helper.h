@@ -71,7 +71,7 @@ char** bpkg_get_subtree_chunks(mtree_node_t* node, uint16_t tree_height);
  * 
  * @returns Node corresponding to the hash we are querying in the merkle (sub)tree, returning -1 if the node doesn't exist.
 */
-mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, enum hash_type mode);
+mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, int mode);
 
 /**
  * @brief Given a node hash, return the corresponding node if it exists.

@@ -105,7 +105,7 @@ void bpkg_unpack(bpkg_t* bpkg) {
         if (strcmp(key, "chunks") == 0 || strcmp(key, "hashes") == 0) {
             bpkg_multiparse(bpkg, key);
         } else {
-            char* defStr = strtok_r(pkg_data, "\n", &pkg_data);
+            strtok_r(pkg_data, "\n", &pkg_data);
             bpkg_monoparse(bpkg, key);
         }
     }
@@ -189,7 +189,6 @@ char** bpkg_get_subtree_chunks(mtree_node_t* node, uint16_t tree_height) {
         b_hashes = bpkg_get_subtree_chunks(node->right, tree_height);
 
         char** arr_merged = merge_arrays(a_hashes, b_hashes, a_size, b_size);
-        uint32_t total_size = a_size + b_size;
         free(a_hashes);
         free(b_hashes);
         return arr_merged;
@@ -203,7 +202,7 @@ int bpkg_validate_node_completion(mtree_node_t* node) {
     return 0;
 }
 
-mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, enum hash_type mode)
+mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, int mode)
 {
     mtree_node_t** nodes;
     uint16_t count;
@@ -218,7 +217,7 @@ mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, enum ha
          count = mtree->nhashes;
     }
     else if (mode == CHUNK)
-    {
+    { 
         nodes = mtree->nodes;
         count = mtree->nchunks;
     }
@@ -270,5 +269,5 @@ mtree_node_t* bpkg_find_node_from_hash_offset(mtree_node_t* root, char* query_ha
             }
         }
     }
-
+    return NULL;
 }
