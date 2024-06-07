@@ -1,0 +1,7 @@
+
+# Ignore files with extension `.class` & `.sm`
+*.o
+
+# Ignore `bin` dir
+bin/
+objs/
