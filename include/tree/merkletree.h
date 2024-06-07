@@ -31,7 +31,7 @@ typedef struct mtree_node {
 }mtree_node_t;
 
 typedef struct mtree{// AKA: Binary Hash Tree
-    struct mtree_node_t* root;
+    mtree_node_t* root;
     
     uint16_t height;
     uint32_t nnodes;
@@ -42,14 +42,16 @@ typedef struct mtree{// AKA: Binary Hash Tree
     mtree_node_t** chk_nodes;
     mtree_node_t** hsh_nodes;
 
-    uint8_t* data;
+    uint8_t* f_data;
     uint32_t f_size;
 }mtree_t;
 
-enum hash_type{
+enum hash_type
+{
     EXPECTED,
     COMPUTED,
 };
+
 
 /**
  * bpkg file object, stores file metadata and contents.
@@ -60,6 +62,7 @@ enum hash_type{
 typedef struct bpkg_obj{
 	char* ident;
 	char* filename;
+    char* pkg_data;
 	
 	mtree_t* mtree; // Contains pointers to hashes leaf nodes.
 }bpkg_t;
@@ -76,10 +79,12 @@ mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i);
  */
 char** mtree_get_chunk_hashes(mtree_t* mtree, enum hash_type mode);
 
+mtree_node_t* mtree_node_create(char* expected_hash, uint8_t is_leaf, uint16_t depth, chunk_t* chunk);
+
 void mtree_node_destroy(mtree_node_t* node);
 
 void mtree_destroy(mtree_t* mtree);
 
-int mtree_get_nchunks_from_root(mtree_node_t* node);
+int mtree_get_nchunks_from_root(mtree_node_t* node, uint16_t tree_height);
 
 #endif // (TREE_MERKLETREE_H)

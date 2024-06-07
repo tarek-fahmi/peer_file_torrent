@@ -32,22 +32,30 @@ bpkg_t* bpkg_load(const char* path)
 
     struct stat statbuf;
     if (fstat(fd, &statbuf)) {
-        perror("Fstat failure\n");
+    perror("Fstat failure\n");
+    close(fd);
+    free(bpkg);
+    return NULL;
     }
 
     char* bpkg_data = (char*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
-
     if (bpkg_data == MAP_FAILED) {
-        perror("Cannot open file\n");
+        perror("Cannot mmap file\n");
+        close(fd);
+        free(bpkg);
+        return NULL;
+    }
+    close(fd);
+
+    bpkg_unpack(bpkg);
+
+    if (mtree_build(bpkg) == NULL) {
+        munmap(bpkg_data, statbuf.st_size);
+        free(bpkg);
         return NULL;
     }
 
-    close(fd);
-
-    bpkg_unpack(bpkg, bpkg_data);
-
-    mtree_build(bpkg);
-
+    munmap(bpkg_data, statbuf.st_size);
     return bpkg;
 }
 
@@ -63,20 +71,25 @@ bpkg_t* bpkg_load(const char* path)
 bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
 {
     bpkg_query_t qobj;
-    mtree_t* mtree = bpkg->mtree;`
+    mtree_t* mtree = bpkg->mtree;
 
-    if (access(mtree->filename, R_OK)) {
-        qobj.hashes[0] = "File exists";
-
-    } else {
+    if (access(bpkg->filename, F_OK) == 0) 
+    {
+    qobj.hashes[0] = "File exists";
+    } 
+    else 
+    {
         FILE* fptr = fopen(bpkg->filename, "wb");
         if (fptr == NULL) 
         {
             perror("Failed to create bpkg data file...");
+            qobj.hashes[0] = "File creation failed";
+            return qobj;
         }
 
-        fseek(fptr, mtree->size - 1, SEEK_SET);
+        fseek(fptr, mtree->f_size - 1, SEEK_SET);
         fwrite("\0", 1, 1, fptr);
+        fclose(fptr);
         qobj.hashes[0] = "File created";
     }
 
@@ -120,24 +133,18 @@ bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg)
     mtree_t* mtree = bpkg->mtree;
     mtree_node_t** nodes = mtree->nodes;
     
-    char** comp_chk_hashes = (char**) malloc(mtree->nchunks * SHA256_HEXLEN);
- 
-    for (int i=0; i < mtree->nchunks; i++)
-    {
-
+    char** comp_chk_hashes = (char**)malloc(mtree->nchunks * sizeof(char*));
+    int count = 0;
+    for (int i = 0; i < mtree->nchunks; i++) {
         mtree_node_t* chk_node = mtree->chk_nodes[i];
-
-        if (strcmp(chk_node->expected_hash, chk_node->computed_hash) == 0)
-        {
-            comp_chk_hashes[i] = chk_node->expected_hash;
+        if (strcmp(chk_node->expected_hash, chk_node->computed_hash) == 0) {
+            comp_chk_hashes[count++] = chk_node->expected_hash;
         }
-
     }
 
-    bpkg_query_t qry = {
-            .hashes = comp_chk_hashes,
-            .len = mtree->nchunks,
-    };
+    bpkg_query_t qry;
+    qry.hashes = comp_chk_hashes;
+    qry.len = count;
 
     return qry;
 }
@@ -156,9 +163,10 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg){
 
     mtree_node_t* subtree_root = bpkg_get_largest_completed_subtree(bpkg->mtree->root);
     
-    bpkg_query_t* qry;
-    qry->hashes = bpkg_get_subtree_chunks(subtree_root);
-    qry->len = mtree_get_nchunks_from_root(subtree_root, bpkg->mtree->height);
+    bpkg_query_t qry;
+    qry.hashes = bpkg_get_subtree_chunks(subtree_root);
+    qry.len = mtree_get_nchunks_from_root(subtree_root, bpkg->mtree->height);
+    return qry;
 }
 
 /**
@@ -172,16 +180,16 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg){
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
+bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash, enum search_mode mode)
 {
-    mtree_node_t* root = bpkg->mtree->root;
-    mtree_node_t* node = bpkg_find_node_from_hash(root, query_hash);
+
+    mtree_node_t* node = bpkg_find_node_from_hash(bpkg->mtree, query_hash, EXPECTED);
     
 
     bpkg_query_t q_obj;
 
-    q_obj.hashes = bpkg_get_subtree_chunks(node);
-    return;
+    q_obj.hashes = bpkg_get_subtree_chunks(node, bpkg->mtree->height);
+    return q_obj;
 }
 
 /**
@@ -190,6 +198,9 @@ bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
  */
 void bpkg_query_destroy(bpkg_query_t* qobj)
 {
+    for (size_t i = 0; i < qobj->len; i++) {
+    free(qobj->hashes[i]);
+    }
     free(qobj->hashes);
     free(qobj);
 }
@@ -202,19 +213,19 @@ void bpkg_destroy(bpkg_t* bobj)
 {
     mtree_t* mtree = bobj->mtree;
     mtree_destroy(mtree);
+    if (bobj) {
+    mtree_destroy(bobj->mtree);
     free(bobj);
+    }
 }
 
 int bpkg_check_chunk(mtree_node_t* node)
 {
-    if (strncmp(node->expected_hash, node->computed_hash, SHA256_HEXLEN) == 0)
-    {
-        debug_print("Chunk valid!");
-        return 1;
-    }
-    else
-    {
+    if (strncmp(node->expected_hash, node->computed_hash, SHA256_HEXLEN) == 0) {
+    debug_print("Chunk valid!");
+    return 1;
+    } else {
         debug_print("Chunk invalid:(");
-        return -1;
+        return 0;
     }
 }

@@ -64,7 +64,7 @@ void peer_create_thread(peer_t* new_peer, request_q_t* reqs_q, peers_t* peers, b
     // Create the thread
     int result = pthread_create(&new_peer->thread, NULL, ((void*) &peer_handler), args);
     if (result != 0) {
-        perror("Thread creation failed....");
+        perror("Thread creation failed....\n");
         free(args); 
         exit(EXIT_FAILURE);
     }
@@ -82,7 +82,7 @@ pkt_t* peer_try_receive(peer_t* peer)
 
     uint8_t *buffer = malloc(PAYLOAD_MAX);
     if (!buffer) {
-        perror("Failed to allocate buffer for receiving pkt");
+        perror("Failed to allocate buffer for receiving pkt\n");
         return NULL;
     }
 
@@ -90,7 +90,7 @@ pkt_t* peer_try_receive(peer_t* peer)
     while (received < PAYLOAD_MAX) {
         ssize_t n = recv(peer->sock_fd, buffer + received, PAYLOAD_MAX - received, 0);
         if (n < 0) {
-            perror("Receive failed or timed out");
+            perror("Receive failed or timed out\n");
             free(buffer);
             return NULL;
         }
@@ -105,7 +105,7 @@ pkt_t* peer_try_receive(peer_t* peer)
     pkt_t* pkt = malloc(sizeof(pkt_t));
 
     if (!pkt) {
-        perror("Failed to allocate pkt");
+        perror("Failed to allocate pkt\n");
         free(buffer);
         return NULL;
     }

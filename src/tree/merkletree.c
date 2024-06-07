@@ -2,20 +2,26 @@
 #include <utilities/my_utils.h>
 #include <crypt/sha256.h>
 #include <sys/mman.h>
+#include <math.h>
 
 void mtree_destroy(mtree_t* mtree){
-    
-    for (int i=0; i++; i<mtree->nnodes) {
-        mtree_node_destroy(mtree->nodes[i]);
+    if (mtree){
+        if (mtree->nodes)
+        {
+            for (int i=0; i < mtree->nnodes; i++) 
+            {
+                mtree_node_destroy(mtree->nodes[i]);
+            }
+        }
+            
+        free(mtree->nodes);
+        free(mtree->chk_nodes);
+        free(mtree->hsh_nodes);
+
+        munmap(mtree->f_data, mtree->f_size);
+
+        free(mtree);
     }
-
-    free(mtree->nodes);
-    free(mtree->chk_nodes);
-    free(mtree->hsh_nodes);
-
-    munmap(mtree->data, mtree->f_size);
-
-    free(mtree);
 }
 
 mtree_t* mtree_build(bpkg_t* bpkg)
@@ -28,23 +34,35 @@ mtree_t* mtree_build(bpkg_t* bpkg)
     int fd = open(bpkg->filename, O_RDONLY);
     if (fd < 0) {
         perror("Cannot open file\n");
+        free(mtree);
         return NULL;
     }
 
     struct stat statbuf;
     if (fstat(fd, &statbuf)) {
         perror("Fstat failure\n");
-    }
-
-    bpkg->mtree->data = (uint8_t*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
-
-    if (bpkg->mtree->data == MAP_FAILED) {
-        perror("Cannot open file\n");
+        close(fd);
+        free(mtree);
         return NULL;
     }
 
+    bpkg->mtree->f_data = (uint8_t*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (bpkg->mtree->f_data == MAP_FAILED) {
+        perror("Cannot open file\n");
+        close(fd);
+        free(mtree);
+        return NULL;
+    }
     close(fd);
+
     mtree->root = mtree_from_lvlorder(mtree, i);
+    if (!mtree->root) {
+        munmap(bpkg->mtree->f_data, statbuf.st_size);
+        free(mtree);
+        return NULL;
+    }
+
+    return mtree;
 }
 
 
@@ -67,16 +85,14 @@ mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i)
     uint32_t nnodes = mtree->nnodes;
     mtree_node_t** nodes = mtree->nodes;
 
-    mtree_node_t* node = (mtree_node_t*) my_malloc(sizeof(mtree_node_t)); 
-
     if(i < nnodes)
     {
         mtree_node_t* node_cur = nodes[i];
 
-        if (i_left < nnodes && i_right < nnodes)
+        if (i_left < ((nnodes-1)/2) && i_right < ((nnodes-1)/2))
         {
             node_cur->left = mtree_from_lvlorder(mtree, i_left);
-            node_cur->left = mtree_from_lvlorder(mtree, i_right);
+            node_cur->right = mtree_from_lvlorder(mtree, i_right);
             sha256_compute_internal_hash(node_cur);
             return node_cur;
             
@@ -86,7 +102,7 @@ mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i)
             return node_cur;
         }
     }
-
+    return NULL;
 }
 
 /**
@@ -105,21 +121,27 @@ char** mtree_get_chunk_hashes(mtree_t* mtree, enum hash_type mode){
             chk_hashes[i] = mtree->chk_nodes[i]->computed_hash;
         }
     }
-
     return chk_hashes;
 }
 
 mtree_node_t* mtree_node_create(char* expected_hash, uint8_t is_leaf, uint16_t depth, chunk_t* chunk)
 {
     mtree_node_t* node_new = (mtree_node_t*) my_malloc(sizeof(mtree_node_t));
-
-    node_new->depth = depth;
     node_new->is_leaf = is_leaf;
-    if (is_leaf == 1)
-    {
-        node_new->chunk = chunk;
-    } 
-    
+    node_new->is_complete = 0;
+    node_new->left = NULL;
+    node_new->right = NULL;
+    node_new->depth = depth;
+    node_new->height = 0;
+    node_new->chunk = chunk;
+
+    if (expected_hash) {
+        strncpy(node_new->expected_hash, expected_hash, SHA256_HEXLEN);
+    } else {
+        memset(node_new->expected_hash, 0, SHA256_HEXLEN);
+    }
+
+    memset(node_new->computed_hash, 0, SHA256_HEXLEN);
     check_err(pthread_mutex_init(&node_new->lock, NULL), "Failed to init lock for mtree node.");
     return node_new;
 }
@@ -146,20 +168,17 @@ void chunk_destroy(chunk_t* chk)
     free(chk);
 }
 
-int chunk_node_update_data(mtree_node_t* node, uint8_t* newdata)
-{
-
-    if (node->is_leaf != 1){
+int chunk_node_update_data(mtree_node_t* node, uint8_t* newdata) {
+    if (node->is_leaf != 1) {
         return -1;
     }
-
     pthread_mutex_lock(&node->lock);
     memcpy(node->chunk->data, newdata, node->chunk->size);
     sha256_compute_chunk_hash(node);
+    pthread_mutex_unlock(&node->lock);
+    return 0;
 }
 
-
-int mtree_get_nchunks_from_root(mtree_node_t* node)
-{
-    return pow(2, node->height + 1) -1;
+int mtree_get_nchunks_from_root(mtree_node_t* node, uint16_t tree_height) {
+    return (int)pow(2, (tree_height - node->depth) + 1) - 1;
 }

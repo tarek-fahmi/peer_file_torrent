@@ -7,8 +7,6 @@
     #define debug_print(...) do {} while (0)
 #endif
 
-#define _DEFAULT_SOURCE
-
 #define _GNU_SOURCE
 
 // Standard Linux Dependencies:
@@ -31,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <features.h>
 
 typedef struct q_node{
     void* data;

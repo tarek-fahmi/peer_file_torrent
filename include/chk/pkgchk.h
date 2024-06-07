@@ -23,6 +23,13 @@ typedef struct bpkg_query{
 	size_t len;
 } bpkg_query_t;
 
+enum search_mode
+{
+    INTERNAL,
+    CHUNK,
+    ALL,
+};
+
 // Part 1 Source Code
 
 /**
@@ -85,7 +92,7 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash);
+bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash, enum search_mode mode);
 
 /**
  * Deallocates the query result after it has been constructed from

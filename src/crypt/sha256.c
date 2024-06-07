@@ -231,21 +231,20 @@ void sha256_output_hex(struct sha256_compute_data* data,
  * 
  * @param node, the node containing the expected hash, computed hash, 
 */
-void sha256_compute_chunk_hash(mtree_node_t* node){
+void sha256_compute_chunk_hash(mtree_node_t* node) {
+    // Initialize prerequisite structures and objects to process and compute hash
+    chunk_t* chunk = node->chunk;
+    struct sha256_compute_data cdata;
+    sha256_compute_data_init(&cdata);
 
-	//Initialzie prerequisite structures and objects to process and compute hash
-	chunk_t* chunk = (chunk_t*) node->value;
-	struct sha256__compute_data* cdata;
-	sha256_compute_data_init(&cdata);
+    // Run hash function on data to be hashed
+    sha256_update(&cdata, chunk->data, chunk->size);
 
-	//Run hash function on data to be hashed
-	sha256_update(&cdata, chunk->data, chunk->size);
+    uint8_t hashout[SHA256_INT_SZ];
 
-	uint8_t hashout[SHA256_INT_SZ];
-
-	//Convert binary hash key into hexadecimal representation and store in computed hash
-	sha256_finalize(&cdata, hashout);
-	sha256_output_hex(&cdata, node->computed_hash);
+    // Convert binary hash key into hexadecimal representation and store in computed hash
+    sha256_finalize(&cdata, hashout);
+    sha256_output_hex(&cdata, node->computed_hash);
 }
 
 /**
@@ -253,43 +252,41 @@ void sha256_compute_chunk_hash(mtree_node_t* node){
  * 
  * @param node, the node containing the expected hash, computed hash, 
 */
-void sha256_compute_internal_hash(mtree_node_t* node){
+void sha256_compute_internal_hash(mtree_node_t* node) {
+    // Initialize prerequisite structures and objects to process and compute hash
+    struct sha256_compute_data cdata;
+    sha256_compute_data_init(&cdata);
 
-	//Initialzie prerequisite structures and objects to process and compute hash
-	chunk_t* chunk = (chunk_t*) node->value;
-	struct sha256__compute_data* cdata;
-	sha256_compute_data_init(&cdata);
+    // Run hash function on concatenated child hashes
+    sha256_update(&cdata, node->left->computed_hash, SHA256_HEXLEN);
+    sha256_update(&cdata, node->right->computed_hash, SHA256_HEXLEN);
 
-	//Run hash function on data to be hashed
-	sha256_update(&cdata, chunk->data, chunk->size);
+    uint8_t hashout[SHA256_INT_SZ];
 
-	uint8_t hashout[SHA256_INT_SZ];
+    // Convert binary hash key into hexadecimal representation and store in computed hash
+    sha256_finalize(&cdata, hashout);
+    sha256_output_hex(&cdata, node->computed_hash);
 
-	//Convert binary hash key into hexadecimal representation and store in computed hash
-	sha256_finalize(&cdata, hashout);
-	sha256_output_hex(&cdata, node->computed_hash);
+    debug_print("Internal node hash: %s", node->computed_hash);
 
-	debug_print("Internal node hash: %s")
-
-	return;
+    return;
 }
 
-void sha256_easy_hash_hex(mtree_node_t* node)
-{
-		//Initialzie prerequisite structures and objects to process and compute hash
-	chunk_t* chunk = (chunk_t*) node->value;
-	struct sha256__compute_data* cdata;
-	sha256_compute_data_init(&cdata);
+void sha256_easy_hash_hex(mtree_node_t* node) {
+    // Initialize prerequisite structures and objects to process and compute hash
+    struct sha256_compute_data cdata;
+    sha256_compute_data_init(&cdata);
 
-	//Run hash function on data to be hashed
-	char** hashes_merged = merge_arrays(node->left->computed_hash, node->right->computed_hash, SHA256_HEXLEN, SHA256_HEXLEN);
-	sha256_update(&cdata, hashes_merged, SHA256_HEXLEN * 2);
-	
-	uint8_t hashout[SHA256_INT_SZ];
+    // Run hash function on concatenated child hashes
+    char merged_hashes[2 * SHA256_HEXLEN + 1];
+    snprintf(merged_hashes, sizeof(merged_hashes), "%s%s", node->left->computed_hash, node->right->computed_hash);
+    sha256_update(&cdata, merged_hashes, strlen(merged_hashes));
 
-	//Convert binary hash key into hexadecimal representation and store in computed hash
-	sha256_finalize(&cdata, hashout);
-	sha256_output_hex(&cdata, node->computed_hash);
+    uint8_t hashout[SHA256_INT_SZ];
 
-	return;
+    // Convert binary hash key into hexadecimal representation and store in computed hash
+    sha256_finalize(&cdata, hashout);
+    sha256_output_hex(&cdata, node->computed_hash);
+
+    return;
 }
