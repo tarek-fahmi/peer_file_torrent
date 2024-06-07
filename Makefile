@@ -12,7 +12,11 @@ pkgchk.o: src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/crypt/
 	$(CC) -c $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS)
 
 
-pkgchecker: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c
+pkgchecker: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c
+	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
+
+
+pkgmain: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c
 	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
 
 # Required for Part 2 - Make sure it outputs `btide` file
@@ -38,4 +42,3 @@ p2tests:
 clean:
 	rm -f objs/*
     
-
