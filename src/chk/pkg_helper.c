@@ -20,8 +20,6 @@ bpkg_t* bpkg_create() {
         free(bpkg);
         return NULL;
     }
-    bpkg->ident = NULL;
-    bpkg->filename = NULL;
     bpkg->pkg_data = NULL;
     bpkg->mtree->root = NULL;
     bpkg->mtree->hsh_nodes = NULL;
@@ -64,9 +62,11 @@ int bpkg_unpack(bpkg_t* bpkg) {
         debug_print("Parsing line: %s\n", line);
 
         if (strncmp(line, "ident:", 6) == 0) {
+            sscanf(line, "filename:%s", bpkg->ident);
             debug_print("Ident line found.\n");
             // Do nothing with ident in this implementation
         } else if (strncmp(line, "filename:", 9) == 0) {
+            sscanf(line, "filename:%s", bpkg->filename);
             debug_print("Filename line found.\n");
             // Do nothing with filename in this implementation
         } else if (strncmp(line, "size:", 5) == 0) {
@@ -77,10 +77,20 @@ int bpkg_unpack(bpkg_t* bpkg) {
             mtree->nhashes = atoi(line + 8);
         } else if (strncmp(line, "hashes:", 7) == 0) {
             debug_print("Hashes section found.\n");
+            mtree->hsh_nodes = (mtree_node_t**)malloc(mtree->nhashes * sizeof(mtree_node_t*));
             // Skip hashes for this implementation
             for (i = 0; i < mtree->nhashes; i++) {
                 line = strtok(NULL, "\n");
+                line++;
                 debug_print("Hash line: %s\n", line);
+                chunk_t* chunk = NULL;
+                mtree_node_t *node = mtree_node_create(line, 0, 0, chunk);
+                    if (node == NULL) {
+                        debug_print("Error: Failed to create mtree node.\n");
+                        free(data);
+                        return -1;
+                }
+                mtree->hsh_nodes[i] = node;
             }
         } else if (strncmp(line, "nchunks:", 8) == 0) {
             debug_print("Nchunks line found: %s\n", line + 8);
@@ -135,96 +145,6 @@ int bpkg_unpack(bpkg_t* bpkg) {
     free(data);
     return 0;
 }
-
-int bpkg_monoparse(bpkg_t *bpkg, char *key, char *data) {
-    if (!bpkg || !key) {
-        fprintf(stderr, "Invalid arguments to bpkg_monoparse\n");
-        return -1;
-    }
-
-    if (strcmp(key, "ident") == 0) {
-        bpkg->ident = truncate_string(data, IDENT_MAX);
-        debug_print("Parsed ident: %s\n", bpkg->ident);
-    } else if (strcmp(key, "filename") == 0) {
-        bpkg->filename = truncate_string(data, FILENAME_MAX);
-        debug_print("Parsed filename: %s\n", bpkg->filename);
-    } else if (strcmp(key, "size") == 0) {
-        sscanf(data, " %u", &bpkg->mtree->f_size);
-        debug_print("Parsed size: %d\n", bpkg->mtree->f_size);
-    } else if (strcmp(key, "nhashes") == 0) {
-        sscanf(data, " %u", &bpkg->mtree->nhashes);
-        bpkg->mtree->hsh_nodes = (mtree_node_t**) my_malloc(sizeof(mtree_node_t*) * bpkg->mtree->nhashes);
-        bpkg->mtree->nodes = (mtree_node_t**) my_malloc(sizeof(mtree_node_t*) * bpkg->mtree->nhashes);
-        debug_print("Parsed nhashes: %d\n", bpkg->mtree->nhashes);
-    } else if (strcmp(key, "nchunks") == 0) {
-        sscanf(data, " %u", &bpkg->mtree->nchunks);
-        bpkg->mtree->nnodes = bpkg->mtree->nhashes + bpkg->mtree->nchunks;
-        bpkg->mtree->chk_nodes = (mtree_node_t**) my_malloc(sizeof(mtree_node_t*) * (bpkg->mtree->nchunks));
-        bpkg->mtree->nodes = (mtree_node_t**) realloc(bpkg->mtree->nodes, (sizeof(mtree_node_t*) * (bpkg->mtree->nnodes)));
-        debug_print("Parsed nchunks: %d\n", bpkg->mtree->nchunks);
-    } else {
-        fprintf(stderr, "Failed to find a matching key for key [%s]\n", key);
-        return -1;
-    }
-
-    return 0;
-}
-
-
-/**
- * Unpacks a key-value pair which is stored on multiple lines.
- *
- * @param bpkg, pointer to empty bpkg object
- * @param pkg_data, package file stored in continuous and complete string.
- *
- * @return bpkg, pointer to constructed bpkg object
- */
-int bpkg_multiparse(bpkg_t *bpkg, char *key, char *pkg_data) {
-    char *line = NULL;
-
-    if (strcmp(key, "hashes") == 0) {
-        for (int i = 0; i < bpkg->mtree->nhashes; i++) {
-            line = strsep(&pkg_data, "\n");
-            if (!line) {
-                fprintf(stderr, "Failed to parse hash at index %d\n", i);
-                return -1;
-            }
-            mtree_node_t *node = mtree_node_create(line, 0, 0, NULL);
-            node->is_leaf = 1;
-            bpkg->mtree->hsh_nodes[i] = node;
-            bpkg->mtree->nodes[i] = node;
-            debug_print("Added hash [%s]\n", line);
-        }
-        return 0;
-    } else if (strcmp(key, "chunks") == 0) {
-        for (int i = 0; i < bpkg->mtree->nchunks; i++) {
-            line = strsep(&pkg_data, "\n");
-            if (!line) {
-                fprintf(stderr, "Failed to parse chunk at index %d\n", i);
-                return -1;
-            }
-            char *hash = strsep(&line, ",");
-            char *offset_str = strsep(&line, ",");
-            char *size_str = line;
-
-            if (!hash || !offset_str || !size_str) {
-                fprintf(stderr, "Invalid chunk format at index %d\n", i);
-                return -1;
-            }
-
-            mtree_node_t *node = mtree_node_create(hash, 1, 0, NULL);
-            load_chunk(node, offset_str, size_str);
-            node->is_leaf = 1; // It should be a leaf node
-            int index = bpkg->mtree->nhashes + i;
-            bpkg->mtree->chk_nodes[i] = node;
-            bpkg->mtree->nodes[index] = node;
-            debug_print("Added chunk [%s, %s, %s]\n", hash, offset_str, size_str);
-        }
-        return 0;
-    }
-    return -1;
-}
-
 
 // Helper Functions:
 /**

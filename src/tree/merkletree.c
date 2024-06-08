@@ -12,7 +12,7 @@ mtree_t* mtree_build(mtree_t* mtree, char* filename)
 
     int fd = open(filename, O_RDONLY);
     if (fd < 0) {
-        perror("Cannot open file\n");
+        fprintf(stderr, "Cannot open file: %s\n", filename);
         return NULL;
     }
 

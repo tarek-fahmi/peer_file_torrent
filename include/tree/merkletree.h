@@ -3,6 +3,8 @@
 
 #define CHUNK_SIZE (4096)
 #define SHA256_HEXLEN (64)
+#define FILE_MAX (256)
+#define IDENTITY_MAX (4096)
 
 #include <utilities/my_utils.h>
 #include <stdint.h>
@@ -60,8 +62,8 @@ enum hash_type
  * 		Make sure to deallocate all dynamic memory in destroy funciton.
  */
 typedef struct bpkg_obj{
-	char* ident;
-	char* filename;
+	char ident[IDENTITY_MAX];
+	char filename[FILE_MAX];
     char* pkg_data;
     uint32_t pkg_size;
 	

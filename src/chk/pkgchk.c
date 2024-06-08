@@ -222,16 +222,6 @@ void bpkg_query_destroy(bpkg_query_t* qobj)
 void bpkg_obj_destroy(bpkg_t* bobj) {
     if (bobj) {
         debug_print("Destroying bpkg object\n");
-        if (bobj->ident) {
-            free(bobj->ident);
-            bobj->ident = NULL;
-            debug_print("Freed ident\n");
-        }
-        if (bobj->filename) {
-            free(bobj->filename);
-            bobj->filename = NULL;
-            debug_print("Freed filename\n");
-        }
         if (bobj->mtree) {
             mtree_destroy(bobj->mtree);
             bobj->mtree = NULL;
