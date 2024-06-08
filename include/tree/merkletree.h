@@ -63,13 +63,14 @@ typedef struct bpkg_obj{
 	char* ident;
 	char* filename;
     char* pkg_data;
+    uint32_t pkg_size;
 	
 	mtree_t* mtree; // Contains pointers to hashes leaf nodes.
 }bpkg_t;
 
-mtree_t* mtree_build(bpkg_t* bpkg);
+mtree_t* mtree_build(mtree_t* mtree, char* filepath);
 
-mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i);
+mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i, uint16_t depth);
 
 /**
  * @brief  Contructs an array of character pointers to leaf node hashes.
@@ -81,10 +82,23 @@ char** mtree_get_chunk_hashes(mtree_t* mtree, enum hash_type mode);
 
 mtree_node_t* mtree_node_create(char* expected_hash, uint8_t is_leaf, uint16_t depth, chunk_t* chunk);
 
-void mtree_node_destroy(mtree_node_t* node);
+void check_mtree_construction(mtree_t* mtree);
 
 void mtree_destroy(mtree_t* mtree);
 
+void bpkg_chunk_destroy(chunk_t* chunk);
+
 int mtree_get_nchunks_from_root(mtree_node_t* node, uint16_t tree_height);
 
-#endif // (TREE_MERKLETREE_H)
+
+void mtree_node_destroy(mtree_node_t* node);
+
+chunk_t* chunk_create(uint8_t* data, uint32_t size, uint32_t offset);
+
+void chunk_destroy(chunk_t* chk);
+
+int chunk_node_update_data(mtree_node_t* node, uint8_t* newdata);
+
+int mtree_get_nchunks_from_root(mtree_node_t* node, uint16_t tree_height);
+
+#endif

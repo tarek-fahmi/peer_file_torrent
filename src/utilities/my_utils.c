@@ -42,6 +42,7 @@ void *my_malloc(size_t size)
     if (heap_obj == NULL)
     {
         perror("Malloc failed... :(");
+        free(heap_obj);
         exit(EXIT_FAILURE);
     }
     return heap_obj;
@@ -167,4 +168,8 @@ void q_node_destroy(q_node_t* node)
 {
     free(node);
     return;
+}
+
+void print_hex(const char *data, size_t size) {
+    printf("\n");
 }

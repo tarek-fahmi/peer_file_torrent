@@ -8,6 +8,8 @@
 #include <utilities/my_utils.h>
 #include <string.h>
 
+bpkg_t* bpkg_create();
+
 /**
  * Unpacks a key-value pair which is stored on one line.
  *
@@ -16,7 +18,7 @@
  *
  * @return bpkg, pointer to constructed bpkg object
  */
-void bpkg_monoparse(bpkg_t* bpkg, char* key);
+int bpkg_monoparse(bpkg_t* bpkg, char* key, char* context);
 /**
  * Unpacks a key-value pair which is stored on multiple lines.
  *
@@ -25,7 +27,9 @@ void bpkg_monoparse(bpkg_t* bpkg, char* key);
  *
  * @return bpkg, pointer to constructed bpkg object
  */
-void bpkg_multiparse(bpkg_t* bpkg, char* key);
+int bpkg_multiparse(bpkg_t* bpkg, char* key, char* data);
+
+void print_parsed_data(mtree_t* mtree);
 
 
 /**
@@ -36,8 +40,9 @@ void bpkg_multiparse(bpkg_t* bpkg, char* key);
  *
  * @return bpkg, pointer to constructed bpkg object
  */
-void bpkg_unpack(bpkg_t* bpkg);
+int bpkg_unpack(bpkg_t* bpkg);
 
+void load_chunk(mtree_node_t* node, char* offset_str, char* size_str);
 
 /**
  * Recursively find the uppermost hash which is valid.
@@ -52,7 +57,7 @@ mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root);
  * with a lead node, and any dynamically allocated
  * attributes.
 */
-void chunk_destroy(chunk_t* cobj);
+void bpkg_chunk_destroy(chunk_t* cobj);
 
 /**
  * Recursively find the uppermost hash which is valid.

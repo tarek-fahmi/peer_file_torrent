@@ -211,7 +211,7 @@ void cli_fetch(char* args, bpkgs_t* bpkgs, peers_t* peers, request_q_t* reqs_q)
         return;
     }
 
-    mtree_node_t* chk_node = bpkg_get_node_from_hash(bpkg->mtree, hash);
+    mtree_node_t *chk_node = bpkg_find_node_from_hash(bpkg->mtree, hash);
 
     pkt_t* pkt_tofind = pkt_prepare_request_pkt(bpkg, chk_node);
 

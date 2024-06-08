@@ -20,42 +20,52 @@
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_t* bpkg_load(const char* path)
-{
-    bpkg_t* bpkg = (bpkg_t*) my_malloc(sizeof(bpkg_t));
+bpkg_t* bpkg_load(const char* path) {
+    bpkg_t* bpkg = bpkg_create();
+    if (!bpkg) return NULL;
 
-    int fd = open(path, O_RDONLY);
+    int fd = open(path, O_RDWR);
     if (fd < 0) {
         perror("Cannot open file\n");
+        bpkg_obj_destroy(bpkg);
         return NULL;
     }
 
     struct stat statbuf;
     if (fstat(fd, &statbuf)) {
-    perror("Fstat failure\n");
-    close(fd);
-    free(bpkg);
-    return NULL;
+        perror("Fstat failure\n");
+        close(fd);
+        bpkg_obj_destroy(bpkg);
+        return NULL;
     }
 
-    char* bpkg_data = (char*)mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
-    if (bpkg_data == MAP_FAILED) {
+    bpkg->pkg_data = (char*)mmap(NULL, statbuf.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    if (bpkg->pkg_data == MAP_FAILED) {
         perror("Cannot mmap file\n");
         close(fd);
-        free(bpkg);
+        bpkg_obj_destroy(bpkg);
         return NULL;
     }
+
+    bpkg->pkg_size = statbuf.st_size;
     close(fd);
 
-    bpkg_unpack(bpkg);
-
-    if (mtree_build(bpkg) == NULL) {
-        munmap(bpkg_data, statbuf.st_size);
-        free(bpkg);
+    if (bpkg_unpack(bpkg) != 0) {
+        munmap(bpkg->pkg_data, statbuf.st_size);
+        bpkg_obj_destroy(bpkg);
         return NULL;
     }
 
-    munmap(bpkg_data, statbuf.st_size);
+    debug_print("Successfully unpacked package file!\n");
+
+    if (mtree_build(bpkg->mtree, bpkg->filename) == NULL) {
+        munmap(bpkg->pkg_data, statbuf.st_size);
+        bpkg_obj_destroy(bpkg);
+        return NULL;
+    }
+
+    debug_print("Successfully built merkle tree!");
+
     return bpkg;
 }
 
@@ -209,15 +219,35 @@ void bpkg_query_destroy(bpkg_query_t* qobj)
  * Deallocates memory at the end of the program,
  * make sure it has been completely deallocated
  */
-void bpkg_obj_destroy(bpkg_t* bobj)
-{
-    mtree_t* mtree = bobj->mtree;
-    mtree_destroy(mtree);
+void bpkg_obj_destroy(bpkg_t* bobj) {
     if (bobj) {
-    mtree_destroy(bobj->mtree);
-    free(bobj);
+        debug_print("Destroying bpkg object\n");
+        if (bobj->ident) {
+            free(bobj->ident);
+            bobj->ident = NULL;
+            debug_print("Freed ident\n");
+        }
+        if (bobj->filename) {
+            free(bobj->filename);
+            bobj->filename = NULL;
+            debug_print("Freed filename\n");
+        }
+        if (bobj->mtree) {
+            mtree_destroy(bobj->mtree);
+            bobj->mtree = NULL;
+            debug_print("Destroyed mtree\n");
+        }
+        if (bobj->pkg_data) {
+            munmap(bobj->pkg_data, bobj->pkg_size);
+            bobj->pkg_data = NULL;
+            debug_print("Unmapped pkg_data\n");
+        }
+        free(bobj);
+        bobj = NULL;
+        debug_print("Freed bpkg object\n");
     }
 }
+
 
 int bpkg_check_chunk(mtree_node_t* node)
 {

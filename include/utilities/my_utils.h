@@ -44,6 +44,7 @@ void* open_file_and_map_to_shared_memory(const char* path);
 
 void *my_malloc(size_t size);
 
+void print_hex(const char *data, size_t size);
 
 /**
  * @brief  Merges two character arrays, and returns the concatenation of the arrays (unsorted).
