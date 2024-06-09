@@ -50,12 +50,12 @@ void *my_malloc(size_t size)
 
 
 /**
- * @brief  Merges two character arrays, and returns the concatenation of the arrays (unsorted).
+ * @brief  Merges two arrays, and returns the concatenation of the arrays (unsorted).
  */
-void** merge_arrays(void** a, void** b, int asize, int bsize){
-    void** newarr = malloc(sizeof(asize + bsize) * sizeof(void*));
-    memcpy(newarr, a, sizeof(void*) * asize);
-    memcpy(newarr + asize, b, sizeof(void*) * bsize);
+void** merge_arrays(void** a, void** b, int asize, int bsize) {
+    void** newarr = (void**) my_malloc((asize + bsize) * sizeof(void*));
+    memcpy(newarr, a, asize * sizeof(void*));
+    memcpy(newarr + asize, b, bsize * sizeof(void*));
 
     free(a);
     free(b);

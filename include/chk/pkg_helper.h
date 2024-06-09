@@ -51,7 +51,7 @@ void load_chunk(mtree_node_t* node, uint32_t offset, uint32_t size);
  * @param root, largest completed subtree root.
  * @return The root of the largest subtree.
  */
-mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root);
+char** bpkg_get_largest_completed_subtree(mtree_node_t* root, int* count);
 
 /**
  * Deallocates the chunk object associated 

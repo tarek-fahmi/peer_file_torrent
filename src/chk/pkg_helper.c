@@ -55,6 +55,7 @@ int bpkg_unpack(bpkg_t* bpkg) {
     unsigned int i = 0;
 
     debug_print("Parsing package metadata...\n");
+    debug_print("%s\n", data);
 
     // Tokenize data by lines
     line = strtok(data, "\n");
@@ -174,43 +175,45 @@ void combine_nodes(mtree_t* mtree) {
  * @param root, largest completed subtree root.
  * @return The root of the largest subtree.
  */
-mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root) {
-    if (!root) return NULL;
-
+char** bpkg_get_largest_completed_subtree(mtree_node_t* root, int* count) {
     if (check_chunk(root)) {
-        return root;
-    }
-
-    mtree_node_t* left = bpkg_get_largest_completed_subtree(root->left);
-    mtree_node_t* right = bpkg_get_largest_completed_subtree(root->right);
-
-    if(left && right){
-        if(left->depth >= right->depth)
-        {
-            debug_print("Left subtree contains contender.\n");
-            return left;
+        char** hashes = (char**)my_malloc(sizeof(char*));
+        if (!hashes) {
+            perror("Memory allocation failed for leaf_hashes.");
+            *count = 0;
+            return NULL;
         }
-        debug_print("Right subtree contains contender.\n");
-        return right;
-    }
-    if (right){
-        debug_print("Right subtree graduates.\n");
-        return right;
-    }if (left){
-        debug_print("Left subtree graduates.\n");
-        return left;
-    }
-    debug_print("Node has no left or right children...\n");
+        hashes[0] = root->expected_hash;
+        *count = 1;
+        return hashes;
+    } else if (root->is_leaf) {
+        *count = 0;
+        return NULL;
+    } else {
+        int lcount = 0, rcount = 0;
+        char** left_hashes = bpkg_get_largest_completed_subtree(root->left, &lcount);
+        char** right_hashes = bpkg_get_largest_completed_subtree(root->right, &rcount);
 
-    return NULL;
+        if (lcount > 0 && rcount > 0) {
+            char** hashes = (char**)merge_arrays((void**)left_hashes, (void**)right_hashes, lcount, rcount);
+            *count = lcount + rcount;
+            return hashes;
+        } else if (rcount > 0) {
+            *count = rcount;
+            return right_hashes;
+        } else {
+            *count = lcount;
+            return left_hashes;
+        }
+    }
+    return NULL; // This line is not necessary, but added for completeness
 }
-
 
 /**
  * Recursively find the uppermost hash which is valid.
  *
  * @param node, the root node representing the subtree of concern.
- * @param size, the total number of nodes 
+ * @param total_chunks, the total number of chunks
  * @return Largest completed subtree root
  */
 char** bpkg_get_subtree_chunks(mtree_node_t* root, int* total_chunks) {
@@ -220,12 +223,7 @@ char** bpkg_get_subtree_chunks(mtree_node_t* root, int* total_chunks) {
     }
 
     if (root->is_leaf) {
-        char** leaf_hashes = (char**) malloc(sizeof(char*));
-        if (!leaf_hashes) {
-            debug_print("Error: Memory allocation failed for leaf_hashes.\n");
-            *total_chunks = 0;
-            return NULL;
-        }
+        char** leaf_hashes = (char**) my_malloc(sizeof(char*));
         leaf_hashes[0] = root->expected_hash;
         *total_chunks = 1;
         return leaf_hashes;
@@ -241,29 +239,19 @@ char** bpkg_get_subtree_chunks(mtree_node_t* root, int* total_chunks) {
         if (left_hashes) free(left_hashes);
         if (right_hashes) free(right_hashes);
         return NULL;
+    } else if (left_chunks > 0 && right_chunks > 0) {
+        char** hashes = (char**) merge_arrays((void**)left_hashes, (void**)right_hashes, left_chunks, right_chunks);
+        return hashes;
+    } else if (left_chunks > 0) {
+        *total_chunks = left_chunks;
+        return left_hashes;
+    } else {
+        *total_chunks = right_chunks;
+        return right_hashes;
     }
-
-    char** all_hashes = (char**) malloc((*total_chunks) * sizeof(char*));
-    if (!all_hashes) {
-        debug_print("Error: Memory allocation failed for all_hashes.\n");
-        if (left_hashes) free(left_hashes);
-        if (right_hashes) free(right_hashes);
-        *total_chunks = 0;
-        return NULL;
-    }
-
-    if (left_hashes) {
-        memcpy(all_hashes, left_hashes, left_chunks * sizeof(char*));
-        free(left_hashes);
-    }
-
-    if (right_hashes) {
-        memcpy(all_hashes + left_chunks, right_hashes, right_chunks * sizeof(char*));
-        free(right_hashes);
-    }
-
-    return all_hashes;
 }
+
+
 
 
 int bpkg_validate_node_completion(mtree_node_t* node) {
@@ -297,6 +285,7 @@ mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, int mod
     for (int i = 0; i < count; i++)
     {
         current_node = nodes[i];
+        
         if (strncmp(nodes[i]->expected_hash, query_hash, SHA256_HEXLEN) == 0)
         {
             debug_print("Queried node was found in this tree!\n");

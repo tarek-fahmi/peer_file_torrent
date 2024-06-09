@@ -74,8 +74,6 @@ mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i, uint16_t depth)
             node_cur->right = mtree_from_lvlorder(mtree, i_right, depth + 1);
             node_cur->height = 1 + fmax(node_cur->left->height, node_cur->right->height);
             node_cur->depth = depth;
-            debug_print("Node at depth %u has children at depths %u and %u.\n",
-                         node_cur->depth, node_cur->left->depth, node_cur->right->depth);
             if (node_cur->left->is_leaf == 1)
             {
                 node_cur->key[0] = node_cur->left->chunk->offset, 

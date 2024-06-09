@@ -1,8 +1,7 @@
 CC=gcc
-CFLAGS=-Wall -std=c2x -g -fsanitize=address
+CFLAGS=-Wall -std=c2x -g -fsanitize=address 
 LDFLAGS=-lm -lpthread
 INCLUDE=-Iinclude
-DEBUG_FLAG = -DDEBUG
 
 .PHONY: clean
 
@@ -19,10 +18,6 @@ pkgchecker: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merklet
 
 pkgmain: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c
 	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
-
-pkgmain-debug:
-	src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c
-	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) $(DEBUG_FLAG) -o $@
 
 # Required for Part 2 - Make sure it outputs `btide` file
 # in your directory ./

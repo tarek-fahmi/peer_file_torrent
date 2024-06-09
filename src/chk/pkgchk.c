@@ -86,7 +86,7 @@ bpkg_query_t* bpkg_file_check(bpkg_t* bpkg)
 
     if (access(bpkg->filename, F_OK) == 0) 
     {
-        hashes[0] = "File exists";
+        hashes[0] = "File Exists";
     } 
     else 
     {
@@ -94,10 +94,13 @@ bpkg_query_t* bpkg_file_check(bpkg_t* bpkg)
         if (fptr == NULL) 
         {
             perror("Failed to create bpkg data file...");
-            hashes[0] = "File creation failed";
+            free(hashes);
+            exit(EXIT_FAILURE);
+        }
+        else{
+            hashes[0] = "File Created";
         }
         fclose(fptr);
-        hashes[0] = "File created";
     }
     bpkg_query_t* qobj = bpkg_qry_create(hashes, 1);
     return qobj;
@@ -111,6 +114,7 @@ bpkg_query_t* bpkg_file_check(bpkg_t* bpkg)
  */
 bpkg_query_t* bpkg_get_all_hashes(bpkg_t* bpkg)
 {
+    debug_print("Printing all hashes...\n");
     char** hashes = my_malloc(sizeof(char*) * bpkg->mtree->nnodes);
  
     mtree_t* mtree = bpkg->mtree;
@@ -131,35 +135,51 @@ bpkg_query_t* bpkg_get_all_hashes(bpkg_t* bpkg)
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg)
-{
+/**
+ * Retrieves all completed chunks of a package object
+ * @param bpkg, constructed bpkg object
+ * @return query_result, This structure will contain a list of hashes
+ * 		and the number of hashes that have been retrieved
+ */
+bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg) {
     mtree_t* mtree = bpkg->mtree;
-    char** hashes;
+    if (mtree == NULL) {
+        debug_print("Error: Invalid mtree structure.\n");
+        return NULL;
+    }
 
-    debug_print("Running chunk check...\n\tnchunks: %u\n",mtree->nchunks);
-
-    char** temp = (char**)malloc(mtree->nchunks * sizeof(char*));
     int count = 0;
+    debug_print("Running chunk check...\n\tnchunks: %u\n", mtree->nchunks);
+
+    char** hashes = (char**) my_malloc(sizeof(char*) * mtree->nchunks);
+    // First, count the number of completed chunks
     for (int i = 0; i < mtree->nchunks; i++) {
         mtree_node_t* chk_node = mtree->chk_nodes[i];
-        if (chk_node->is_complete){
-            temp[count] = chk_node->expected_hash;
+        if (chk_node && check_chunk(chk_node)) {
+            hashes[count] = chk_node->expected_hash;
             count++;
         }
     }
-    if (count != 0){
-        hashes = (char**) realloc(temp, (sizeof(char*) * count));
-    }
-    else{
-        free(temp);
-    }
 
+    // Allocate memory for the hashes array
+    if (count != 0 && count != mtree->nchunks)
+    {
+        hashes = (char**)realloc(hashes, (count * sizeof(char*)));
+        if (hashes == NULL)
+        {
+            perror("Reallocation for hashes array failed...");
+            bpkg_obj_destroy(bpkg);
+            free(hashes);
+            exit(EXIT_FAILURE);
+        }
+    }
+    
     bpkg_query_t* qry = bpkg_qry_create(hashes, count);
     return qry;
 }
 
 /**
- * Gets the mininum of hashes to represented the current completion state
+ * Gets the minimum of hashes to represent the current completion state.
  * Example: If chunks representing start to mid have been completed but
  * 	mid to end have not been, then we will have (N_CHUNKS/2) + 1 hashes
  * 	outputted
@@ -168,17 +188,15 @@ bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg)
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t* bpkg_get_min_completed_hashes(bpkg_t* bpkg){
+bpkg_query_t* bpkg_get_min_completed_hashes(bpkg_t* bpkg) {
 
-    mtree_node_t* subtree_root = bpkg_get_largest_completed_subtree(bpkg->mtree->root);
-    if (!subtree_root) debug_print("Failed to find a subtree root meeting the criteria...\n");
-    debug_print("Largest completed subtree root found at depth %u", subtree_root->depth);
-    int len = 0;
-    char** hashes = bpkg_get_subtree_chunks(subtree_root, &len);
-    bpkg_query_t* qry = bpkg_qry_create(hashes, len);
+    int numchunks = 0;
+    char** hashes = bpkg_get_largest_completed_subtree(bpkg->mtree->root, &numchunks);
 
+    bpkg_query_t* qry = bpkg_qry_create(hashes, numchunks);
     return qry;
 }
+
 
 /**
  * Retrieves all chunk hashes given a certain an ancestor hash (or itself)
@@ -194,8 +212,8 @@ bpkg_query_t* bpkg_get_min_completed_hashes(bpkg_t* bpkg){
 
 bpkg_query_t* bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
 {
-
-    mtree_node_t* node = bpkg_find_node_from_hash(bpkg->mtree, query_hash, EXPECTED);
+    debug_print("Returning all chunk hashes from hash.....");
+    mtree_node_t* node = bpkg_find_node_from_hash(bpkg->mtree, query_hash, ALL);
 
     int nchunks = 0;
     char** hashes = bpkg_get_subtree_chunks(node, &nchunks);
@@ -209,8 +227,8 @@ bpkg_query_t* bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash
  */
 void bpkg_query_destroy(bpkg_query_t* qobj)
 {
-    free(qobj->hashes);
-    free(qobj);
+    if (qobj->hashes) free(qobj->hashes);
+    if (qobj) free(qobj);
 }
 
 /**
