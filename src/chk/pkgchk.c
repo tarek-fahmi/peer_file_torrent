@@ -56,6 +56,9 @@ bpkg_t* bpkg_load(const char* path) {
         return NULL;
     }
 
+    bpkg_query_t* qry = bpkg_file_check(bpkg);
+    bpkg_query_destroy(qry);
+
     debug_print("Successfully unpacked package file!\n");
 
     if (mtree_build(bpkg->mtree, bpkg->filename) == NULL) {
@@ -64,8 +67,7 @@ bpkg_t* bpkg_load(const char* path) {
         return NULL;
     }
 
-    debug_print("Successfully built merkle tree!");
-
+    debug_print("Successfully built merkle tree!\n");
     return bpkg;
 }
 
@@ -78,15 +80,13 @@ bpkg_t* bpkg_load(const char* path) {
  * 		If the file exists, hashes[0] should contain "File Exists"
  *		If the file does not exist, hashes[0] should contain "File Created"
  */
-bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
+bpkg_query_t* bpkg_file_check(bpkg_t* bpkg)
 {
-    bpkg_query_t qobj;
-    qobj.hashes = my_malloc(sizeof(char*) * 16);
-    mtree_t* mtree = bpkg->mtree;
+    char** hashes = (char**) my_malloc(sizeof(char*));
 
     if (access(bpkg->filename, F_OK) == 0) 
     {
-        qobj.hashes[0] = "File exists";
+        hashes[0] = "File exists";
     } 
     else 
     {
@@ -94,16 +94,12 @@ bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
         if (fptr == NULL) 
         {
             perror("Failed to create bpkg data file...");
-            qobj.hashes[0] = "File creation failed";
-            return qobj;
+            hashes[0] = "File creation failed";
         }
-
-        fseek(fptr, mtree->f_size - 1, SEEK_SET);
-        fwrite("\0", 1, 1, fptr);
         fclose(fptr);
-        qobj.hashes[0] = "File created";
+        hashes[0] = "File created";
     }
-
+    bpkg_query_t* qobj = bpkg_qry_create(hashes, 1);
     return qobj;
 }
 
@@ -113,9 +109,9 @@ bpkg_query_t bpkg_file_check(bpkg_t* bpkg)
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg)
+bpkg_query_t* bpkg_get_all_hashes(bpkg_t* bpkg)
 {
-    char* hashes[SHA256_HEXLEN];
+    char** hashes = my_malloc(sizeof(char*) * bpkg->mtree->nnodes);
  
     mtree_t* mtree = bpkg->mtree;
 
@@ -124,10 +120,7 @@ bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg)
         hashes[i] = mtree->nodes[i]->expected_hash;
     }
 
-    bpkg_query_t qry = {
-        .hashes = hashes,
-        .len = mtree->nnodes,
-    };
+    bpkg_query_t* qry = bpkg_qry_create(hashes, mtree->nnodes);
     
     return qry;
 }
@@ -138,24 +131,30 @@ bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg)
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg)
+bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg)
 {
-
     mtree_t* mtree = bpkg->mtree;
-    
-    char** comp_chk_hashes = (char**)malloc(mtree->nchunks * sizeof(char*));
+    char** hashes;
+
+    debug_print("Running chunk check...\n\tnchunks: %u\n",mtree->nchunks);
+
+    char** temp = (char**)malloc(mtree->nchunks * sizeof(char*));
     int count = 0;
     for (int i = 0; i < mtree->nchunks; i++) {
         mtree_node_t* chk_node = mtree->chk_nodes[i];
-        if (strcmp(chk_node->expected_hash, chk_node->computed_hash) == 0) {
-            comp_chk_hashes[count++] = chk_node->expected_hash;
+        if (chk_node->is_complete){
+            temp[count] = chk_node->expected_hash;
+            count++;
         }
     }
+    if (count != 0){
+        hashes = (char**) realloc(temp, (sizeof(char*) * count));
+    }
+    else{
+        free(temp);
+    }
 
-    bpkg_query_t qry;
-    qry.hashes = comp_chk_hashes;
-    qry.len = count;
-
+    bpkg_query_t* qry = bpkg_qry_create(hashes, count);
     return qry;
 }
 
@@ -169,13 +168,15 @@ bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg)
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg){
+bpkg_query_t* bpkg_get_min_completed_hashes(bpkg_t* bpkg){
 
     mtree_node_t* subtree_root = bpkg_get_largest_completed_subtree(bpkg->mtree->root);
-    
-    bpkg_query_t qry;
-    qry.hashes = bpkg_get_subtree_chunks(subtree_root, bpkg->mtree->height);
-    qry.len = mtree_get_nchunks_from_root(subtree_root, bpkg->mtree->height);
+    if (!subtree_root) debug_print("Failed to find a subtree root meeting the criteria...\n");
+    debug_print("Largest completed subtree root found at depth %u", subtree_root->depth);
+    int len = 0;
+    char** hashes = bpkg_get_subtree_chunks(subtree_root, &len);
+    bpkg_query_t* qry = bpkg_qry_create(hashes, len);
+
     return qry;
 }
 
@@ -190,15 +191,15 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg){
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
+
+bpkg_query_t* bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
 {
 
     mtree_node_t* node = bpkg_find_node_from_hash(bpkg->mtree, query_hash, EXPECTED);
-    
 
-    bpkg_query_t q_obj;
-
-    q_obj.hashes = bpkg_get_subtree_chunks(node, bpkg->mtree->height);
+    int nchunks = 0;
+    char** hashes = bpkg_get_subtree_chunks(node, &nchunks);
+    bpkg_query_t* q_obj = bpkg_qry_create(hashes, nchunks);
     return q_obj;
 }
 
@@ -208,9 +209,6 @@ bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
  */
 void bpkg_query_destroy(bpkg_query_t* qobj)
 {
-    for (size_t i = 0; i < qobj->len; i++) {
-    free(qobj->hashes[i]);
-    }
     free(qobj->hashes);
     free(qobj);
 }
@@ -239,13 +237,12 @@ void bpkg_obj_destroy(bpkg_t* bobj) {
 }
 
 
-int bpkg_check_chunk(mtree_node_t* node)
+
+
+bpkg_query_t* bpkg_qry_create(char** hashes, uint16_t len)
 {
-    if (strncmp(node->expected_hash, node->computed_hash, SHA256_HEXLEN) == 0) {
-    debug_print("Chunk valid!");
-    return 1;
-    } else {
-        debug_print("Chunk invalid:(");
-        return 0;
-    }
+    bpkg_query_t* qobj = (bpkg_query_t*) my_malloc(sizeof(bpkg_query_t));
+    qobj->hashes = hashes;
+    qobj->len = len;
+    return qobj;
 }

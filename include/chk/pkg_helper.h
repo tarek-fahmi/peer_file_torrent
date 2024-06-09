@@ -31,6 +31,7 @@ int bpkg_multiparse(bpkg_t* bpkg, char* key, char* data);
 
 void print_parsed_data(mtree_t* mtree);
 
+void combine_nodes(mtree_t* mtree) ;
 
 /**
  * Unpacks the contents of the package file into a bpkg_tect.
@@ -42,7 +43,7 @@ void print_parsed_data(mtree_t* mtree);
  */
 int bpkg_unpack(bpkg_t* bpkg);
 
-void load_chunk(mtree_node_t* node, char* offset_str, char* size_str);
+void load_chunk(mtree_node_t* node, uint32_t offset, uint32_t size);
 
 /**
  * Recursively find the uppermost hash which is valid.
@@ -66,7 +67,7 @@ void bpkg_chunk_destroy(chunk_t* cobj);
  * @param size, the total number of nodes 
  * @return Largest completed subtree root
  */
-char** bpkg_get_subtree_chunks(mtree_node_t* node, uint16_t tree_height);
+char** bpkg_get_subtree_chunks(mtree_node_t* node, int* numchunks);
 
 /**
  * @brief Given a node hash, return the corresponding node if it exists.

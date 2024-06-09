@@ -3,5 +3,6 @@
 *.o
 
 # Ignore `bin` dir
-bin/
 objs/
+.vscode/
+.gitignore/

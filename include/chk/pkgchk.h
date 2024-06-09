@@ -52,14 +52,14 @@ bpkg_t* bpkg_load(const char* path);
  * 		If the file exists, hashes[0] should contain "File Exists"
  *		If the file does not exist, hashes[0] should contain "File Created"
  */
-bpkg_query_t bpkg_file_check(bpkg_t* bpkg);
+bpkg_query_t* bpkg_file_check(bpkg_t* bpkg);
 /**
  * Retrieves a list of all hashes within the package/tree
  * @param bpkg, constructed bpkg object
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg);
+bpkg_query_t* bpkg_get_all_hashes(bpkg_t* bpkg);
 
 /**
  * Retrieves all completed chunks of a package object
@@ -67,7 +67,7 @@ bpkg_query_t bpkg_get_all_hashes(bpkg_t* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg);
+bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg);
 
 /**
  * Gets the mininum of hashes to represented the current completion state
@@ -79,7 +79,7 @@ bpkg_query_t bpkg_get_completed_chunks(bpkg_t* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg);
+bpkg_query_t* bpkg_get_min_completed_hashes(bpkg_t* bpkg);
 
 /**
  * Retrieves all chunk hashes given a certain an ancestor hash (or itself)
@@ -92,7 +92,7 @@ bpkg_query_t bpkg_get_min_completed_hashes(bpkg_t* bpkg);
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash);
+bpkg_query_t* bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash);
 
 /**
  * Deallocates the query result after it has been constructed from
@@ -100,12 +100,12 @@ bpkg_query_t bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash)
  */
 void bpkg_query_destroy(bpkg_query_t* qobj);
 
+bpkg_query_t* bpkg_qry_create(char** hashes, uint16_t len);
+
 /**
  * Deallocates memory at the end of the program,
  * make sure it has been completely deallocated
  */
 void bpkg_obj_destroy(bpkg_t* bobj);
-
-int bpkg_check_chunk(mtree_node_t* node);
 
 #endif

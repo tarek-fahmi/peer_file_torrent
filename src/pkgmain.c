@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 
 
 	if(arg_select(argc, argv, &argselect, hash)) {
-		struct bpkg_query qry = { 0 };
+		struct bpkg_query* qry;
 		struct bpkg_obj* obj = bpkg_load(argv[1]);
 		
 		if(!obj) {
@@ -67,29 +67,29 @@ int main(int argc, char** argv) {
 
 		if(argselect == 1) {
 			qry = bpkg_get_all_hashes(obj);
-			bpkg_print_hashes(&qry);
-			bpkg_query_destroy(&qry);
+			bpkg_print_hashes(qry);
+			bpkg_query_destroy(qry);
 		} else if(argselect == 2) {
 
 			qry = bpkg_get_completed_chunks(obj);
-			bpkg_print_hashes(&qry);
-			bpkg_query_destroy(&qry);
+			bpkg_print_hashes(qry);
+			bpkg_query_destroy(qry);
 		} else if(argselect == 3) {
 
 			qry = bpkg_get_min_completed_hashes(obj);
-			bpkg_print_hashes(&qry);
-			bpkg_query_destroy(&qry);
+			bpkg_print_hashes(qry);
+			bpkg_query_destroy(qry);
 		} else if(argselect == 4) {
 
 			qry = bpkg_get_all_chunk_hashes_from_hash(obj, 
 					hash);
-			bpkg_print_hashes(&qry);
-			bpkg_query_destroy(&qry);
+			bpkg_print_hashes(qry);
+			bpkg_query_destroy(qry);
 		} else if(argselect == 5) {
 
 			qry = bpkg_file_check(obj);
-			bpkg_print_hashes(&qry);
-			bpkg_query_destroy(&qry);
+			bpkg_print_hashes(qry);
+			bpkg_query_destroy(qry);
 		} else {
 			puts("Argument is invalid");
 			return 1;

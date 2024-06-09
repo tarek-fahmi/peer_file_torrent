@@ -20,15 +20,15 @@ bpkg_t* bpkg_create() {
         free(bpkg);
         return NULL;
     }
-    bpkg->pkg_data = NULL;
-    bpkg->mtree->root = NULL;
+    bpkg->pkg_data =         NULL;
+    bpkg->mtree->root =      NULL;
     bpkg->mtree->hsh_nodes = NULL;
     bpkg->mtree->chk_nodes = NULL;
-    bpkg->mtree->nodes = NULL;
-    bpkg->mtree->f_data = NULL;
-    bpkg->mtree->height = 0;
+    bpkg->mtree->nodes =     NULL;
+    bpkg->mtree->f_data =    NULL;
+    bpkg->mtree->height =  0;
     bpkg->mtree->nchunks = 0;
-    bpkg->mtree->nnodes = 0;
+    bpkg->mtree->nnodes =  0;
     bpkg->mtree->nhashes = 0;
     return bpkg;
 }
@@ -54,97 +54,109 @@ int bpkg_unpack(bpkg_t* bpkg) {
     char *line;
     unsigned int i = 0;
 
-    debug_print("Starting to parse package data...\n");
+    debug_print("Parsing package metadata...\n");
 
     // Tokenize data by lines
     line = strtok(data, "\n");
     while (line != NULL) {
-        debug_print("Parsing line: %s\n", line);
 
         if (strncmp(line, "ident:", 6) == 0) {
-            sscanf(line, "filename:%s", bpkg->ident);
-            debug_print("Ident line found.\n");
-            // Do nothing with ident in this implementation
+            sscanf(line, "ident:%s", bpkg->ident);
         } else if (strncmp(line, "filename:", 9) == 0) {
             sscanf(line, "filename:%s", bpkg->filename);
-            debug_print("Filename line found.\n");
-            // Do nothing with filename in this implementation
         } else if (strncmp(line, "size:", 5) == 0) {
-            debug_print("Size line found: %s\n", line + 5);
-            mtree->f_size = atoi(line + 5);
+            sscanf(line, "size:%u", &bpkg->mtree->f_size);
         } else if (strncmp(line, "nhashes:", 8) == 0) {
-            debug_print("Nhases line found: %s\n", line + 8);
-            mtree->nhashes = atoi(line + 8);
+            sscanf(line, "nhashes:%u", &bpkg->mtree->nhashes);
+            mtree->hsh_nodes = (mtree_node_t**)my_malloc(mtree->nhashes * sizeof(mtree_node_t*));
         } else if (strncmp(line, "hashes:", 7) == 0) {
             debug_print("Hashes section found.\n");
-            mtree->hsh_nodes = (mtree_node_t**)malloc(mtree->nhashes * sizeof(mtree_node_t*));
-            // Skip hashes for this implementation
             for (i = 0; i < mtree->nhashes; i++) {
                 line = strtok(NULL, "\n");
                 line++;
-                debug_print("Hash line: %s\n", line);
                 chunk_t* chunk = NULL;
                 mtree_node_t *node = mtree_node_create(line, 0, 0, chunk);
-                    if (node == NULL) {
-                        debug_print("Error: Failed to create mtree node.\n");
-                        free(data);
-                        return -1;
-                }
                 mtree->hsh_nodes[i] = node;
             }
-        } else if (strncmp(line, "nchunks:", 8) == 0) {
-            debug_print("Nchunks line found: %s\n", line + 8);
-            mtree->nchunks = atoi(line + 8);
-        } else if (strncmp(line, "chunks:", 7) == 0) {
-            debug_print("Chunks section found.\n");
-            mtree->chk_nodes = (mtree_node_t**)malloc(mtree->nchunks * sizeof(mtree_node_t*));
-            if (mtree->chk_nodes == NULL) {
-                debug_print("Error: Memory allocation for chunk nodes failed.\n");
-                free(data);
-                return -1;
-            }
-            for (i = 0; i < mtree->nchunks; i++) {
+
+        } else if (strncmp(line, "nchunks:", 8) == 0) 
+        {
+            sscanf(line, "nchunks:%u", &bpkg->mtree->nchunks);
+            mtree->nnodes = bpkg->mtree->nhashes + bpkg->mtree->nchunks;
+            mtree->chk_nodes = (mtree_node_t**)my_malloc(mtree->nchunks * sizeof(mtree_node_t*));
+
+        } 
+        else if (strncmp(line, "chunks:", 7) == 0) 
+        {
+            debug_print("Chunks section found, nchunks: %u\n", mtree->nchunks);
+            for (i = 0; i < mtree->nchunks; i++) 
+            {
                 line = strtok(NULL, "\n");
-                if (line != NULL) {
+                line++;
+                if (line != NULL) 
+                {
                     char hash[SHA256_HEXLEN + 1]; // Ensure there's space for null-termination
+                    hash[SHA256_HEXLEN] = '\0';
                     uint32_t offset, size;
 
                     // Use sscanf to split the line safely
-                    if (sscanf(line, "%64s,%u,%u", hash, &offset, &size) != 3) {
+                    if (sscanf(line, "%64s,%u,%u", hash, &offset, &size) != 3)
+                    {
                         debug_print("Error: Invalid chunk format.\n");
                         free(data);
                         return -1;
                     }
 
-                    debug_print("Chunk parsed - Hash: %s, Offset: %u, Size: %u\n", hash, offset, size);
+                    //debug_print("Chunk parsed - Hash: %s, Offset: %u, Size: %u\n", hash, offset, size);
 
                     chunk_t *chunk = chunk_create(NULL, size, offset);
-                    if (chunk == NULL) {
-                        debug_print("Error: Failed to create chunk.\n");
-                        free(data);
-                        return -1;
-                    }
-
-                    mtree_node_t *node = mtree_node_create(hash, 1, 0, chunk);
-                    if (node == NULL) {
-                        debug_print("Error: Failed to create mtree node.\n");
-                        free(data);
-                        return -1;
-                    }
-
-                    mtree->chk_nodes[i] = node;
+                    mtree_node_t *node_curr = mtree_node_create(hash, true, 0, chunk);
+                    mtree->chk_nodes[i] = node_curr;
                 }
-}
-        }
 
+            }
+        }
         line = strtok(NULL, "\n");
     }
 
-    debug_print("Finished parsing package data.\n");
 
+
+    debug_print("Finished parsing package data. Now merging arrays...\n");
+    combine_nodes(mtree);
     free(data);
     return 0;
 }
+
+void combine_nodes(mtree_t* mtree) {
+    if (mtree == NULL) {
+        debug_print("Error: mtree is NULL.\n");
+        return;
+    }
+
+    // Calculate the total number of nodes
+    uint32_t total_nodes = mtree->nhashes + mtree->nchunks;
+    mtree->nnodes = total_nodes;
+
+    // Allocate memory for the combined nodes array
+    mtree->nodes = (mtree_node_t**)malloc(total_nodes * sizeof(mtree_node_t*));
+    if (mtree->nodes == NULL) {
+        debug_print("Error: Memory allocation for combined nodes failed.\n");
+        return;
+    }
+
+    // Copy hsh_nodes to nodes array
+    for (uint32_t i = 0; i < mtree->nhashes; i++) {
+        mtree->nodes[i] = mtree->hsh_nodes[i];
+    }
+
+    // Copy chk_nodes to nodes array
+    for (uint32_t i = 0; i < mtree->nchunks; i++) {
+        mtree->nodes[mtree->nhashes + i] = mtree->chk_nodes[i];
+    }
+
+    debug_print("Combined nodes array created with %u nodes.\n", total_nodes);
+}
+
 
 // Helper Functions:
 /**
@@ -155,64 +167,41 @@ int bpkg_unpack(bpkg_t* bpkg) {
  * @param  pkg_data: Pointer to the pkg_data of the file.
  * @retval None
  */
-void load_chunk(mtree_node_t* node, char* offset_str, char* size_str) {
-    if (!node || !offset_str || !size_str) {
-        fprintf(stderr, "Invalid input to load_chunk\n");
-        return;
-    }
 
-    node->chunk = (chunk_t*) malloc(sizeof(chunk_t));
-    if (node->chunk == NULL) {
-        perror("Memory allocation failure for chunk\n");
-        return;
-    }
-
-    node->chunk->offset = strtoul(offset_str, NULL, 10);
-    node->chunk->size = strtoul(size_str, NULL, 10);
-    node->chunk->data = NULL; // Initialize data to NULL
-}
 /**
  * Recursively find the uppermost hash which is valid.
  *
  * @param root, largest completed subtree root.
  * @return The root of the largest subtree.
  */
-mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root){
-    if (!root || !root->left || !root->right) return NULL;
+mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root) {
+    if (!root) return NULL;
 
-    if (root->is_complete){
+    if (check_chunk(root)) {
         return root;
-    }else if(root->is_leaf)
-    {
-        return NULL;
-        debug_print("No nodes are completed...\n");
     }
-    else if(root->left->is_complete){
-        return root;
-    }else if (root->right->is_complete){
-        return root;
-    }else{
-        mtree_node_t* left = bpkg_get_largest_completed_subtree(root->left);
-        mtree_node_t* right = bpkg_get_largest_completed_subtree(root->right);
-        if (left != NULL)
+
+    mtree_node_t* left = bpkg_get_largest_completed_subtree(root->left);
+    mtree_node_t* right = bpkg_get_largest_completed_subtree(root->right);
+
+    if(left && right){
+        if(left->depth >= right->depth)
         {
-            if (right != NULL)
-            {
-                if (left->depth >= right->depth)
-                {
-                    return left;
-                }
-                else{
-                    return right;
-                }
-            }
+            debug_print("Left subtree contains contender.\n");
             return left;
         }
-        else if (right != NULL)
-        {
-            return right;
-        }
+        debug_print("Right subtree contains contender.\n");
+        return right;
     }
+    if (right){
+        debug_print("Right subtree graduates.\n");
+        return right;
+    }if (left){
+        debug_print("Left subtree graduates.\n");
+        return left;
+    }
+    debug_print("Node has no left or right children...\n");
+
     return NULL;
 }
 
@@ -224,27 +213,58 @@ mtree_node_t* bpkg_get_largest_completed_subtree(mtree_node_t* root){
  * @param size, the total number of nodes 
  * @return Largest completed subtree root
  */
-char** bpkg_get_subtree_chunks(mtree_node_t* node, uint16_t tree_height) {
-    char** a_hashes = NULL; 
-    char** b_hashes = NULL;
-
-    if (node->is_leaf) {
-        a_hashes = (char**)malloc(sizeof(char*));
-        a_hashes[0] = node->expected_hash;
-        return a_hashes;
-    } else {
-        int b_size = mtree_get_nchunks_from_root(node->left, tree_height);
-        int a_size = b_size;
-
-        a_hashes = bpkg_get_subtree_chunks(node->left, tree_height);
-        b_hashes = bpkg_get_subtree_chunks(node->right, tree_height);
-
-        char** arr_merged = merge_arrays(a_hashes, b_hashes, a_size, b_size);
-        free(a_hashes);
-        free(b_hashes);
-        return arr_merged;
+char** bpkg_get_subtree_chunks(mtree_node_t* root, int* total_chunks) {
+    if (root == NULL) {
+        *total_chunks = 0;
+        return NULL;
     }
+
+    if (root->is_leaf) {
+        char** leaf_hashes = (char**) malloc(sizeof(char*));
+        if (!leaf_hashes) {
+            debug_print("Error: Memory allocation failed for leaf_hashes.\n");
+            *total_chunks = 0;
+            return NULL;
+        }
+        leaf_hashes[0] = root->expected_hash;
+        *total_chunks = 1;
+        return leaf_hashes;
+    }
+
+    int left_chunks = 0, right_chunks = 0;
+    char** left_hashes = bpkg_get_subtree_chunks(root->left, &left_chunks);
+    char** right_hashes = bpkg_get_subtree_chunks(root->right, &right_chunks);
+
+    *total_chunks = left_chunks + right_chunks;
+
+    if (*total_chunks <= 0) {
+        if (left_hashes) free(left_hashes);
+        if (right_hashes) free(right_hashes);
+        return NULL;
+    }
+
+    char** all_hashes = (char**) malloc((*total_chunks) * sizeof(char*));
+    if (!all_hashes) {
+        debug_print("Error: Memory allocation failed for all_hashes.\n");
+        if (left_hashes) free(left_hashes);
+        if (right_hashes) free(right_hashes);
+        *total_chunks = 0;
+        return NULL;
+    }
+
+    if (left_hashes) {
+        memcpy(all_hashes, left_hashes, left_chunks * sizeof(char*));
+        free(left_hashes);
+    }
+
+    if (right_hashes) {
+        memcpy(all_hashes + left_chunks, right_hashes, right_chunks * sizeof(char*));
+        free(right_hashes);
+    }
+
+    return all_hashes;
 }
+
 
 int bpkg_validate_node_completion(mtree_node_t* node) {
     if (strncmp(node->expected_hash, node->computed_hash, SHA256_HEXLEN) == 0) {

@@ -4,7 +4,7 @@
 #ifdef DEBUG
     #define debug_print(...) printf("DEBUG: " __VA_ARGS__)
 #else
-    #define debug_print(...) do {} while (0)
+    #define debug_print(...) do {} while (0);
 #endif
 
 #define _GNU_SOURCE
@@ -49,7 +49,7 @@ void print_hex(const char *data, size_t size);
 /**
  * @brief  Merges two character arrays, and returns the concatenation of the arrays (unsorted).
  */
-char** merge_arrays(char** a, char** b, int asize, int bsize);
+void** merge_arrays(void** a, void** b, int asize, int bsize);
 
 /**
  * @brief  Truncates a string if it is longer than a specified length, else does

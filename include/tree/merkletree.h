@@ -16,8 +16,8 @@ typedef struct chunk_t{
 }chunk_t;
 
 typedef struct mtree_node {
-    uint8_t is_leaf;
-    uint8_t is_complete;
+    bool is_leaf;
+    bool is_complete;
 
     struct mtree_node* left;
     struct mtree_node* right;
@@ -82,7 +82,7 @@ mtree_node_t* mtree_from_lvlorder(mtree_t* mtree, uint32_t i, uint16_t depth);
  */
 char** mtree_get_chunk_hashes(mtree_t* mtree, enum hash_type mode);
 
-mtree_node_t* mtree_node_create(char* expected_hash, uint8_t is_leaf, uint16_t depth, chunk_t* chunk);
+mtree_node_t* mtree_node_create(char* expected_hash, bool is_leaf, uint16_t depth, chunk_t* chunk);
 
 void check_mtree_construction(mtree_t* mtree);
 
@@ -102,5 +102,11 @@ void chunk_destroy(chunk_t* chk);
 int chunk_node_update_data(mtree_node_t* node, uint8_t* newdata);
 
 int mtree_get_nchunks_from_root(mtree_node_t* node, uint16_t tree_height);
+
+void node_print_info(mtree_node_t* node);
+
+int init_chunks_data(mtree_t* mtree);
+
+bool check_chunk(mtree_node_t* node);
 
 #endif

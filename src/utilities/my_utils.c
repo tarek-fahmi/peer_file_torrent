@@ -52,10 +52,10 @@ void *my_malloc(size_t size)
 /**
  * @brief  Merges two character arrays, and returns the concatenation of the arrays (unsorted).
  */
-char** merge_arrays(char** a, char** b, int asize, int bsize){
-    char** newarr = my_malloc(sizeof(asize + bsize) * sizeof(char*));
-    memcpy(newarr, a, sizeof(char) * asize);
-    memcpy(newarr + asize, b, sizeof(char) * bsize);
+void** merge_arrays(void** a, void** b, int asize, int bsize){
+    void** newarr = malloc(sizeof(asize + bsize) * sizeof(void*));
+    memcpy(newarr, a, sizeof(void*) * asize);
+    memcpy(newarr + asize, b, sizeof(void*) * bsize);
 
     free(a);
     free(b);
@@ -74,7 +74,6 @@ char* truncate_string(char* str, int limit)
         str[limit] = '\0';
     }
     return str;
-    \
 }
 
 int check_null(void* obj){

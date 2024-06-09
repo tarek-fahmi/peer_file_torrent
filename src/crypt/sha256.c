@@ -234,6 +234,12 @@ void sha256_output_hex(struct sha256_compute_data* data,
 */
 void sha256_compute_chunk_hash(mtree_node_t* node) {
     // Initialize prerequisite structures and objects to process and compute hash
+	if (!node || node->is_leaf == false || (!node->chunk))
+	{
+		debug_print("Cannot compute chunk hash for uninitialized leaf node...\n");
+		return;
+	}
+
     chunk_t* chunk = node->chunk;
     struct sha256_compute_data cdata;
     sha256_compute_data_init(&cdata);
@@ -267,8 +273,6 @@ void sha256_compute_internal_hash(mtree_node_t* node) {
     // Convert binary hash key into hexadecimal representation and store in computed hash
     sha256_finalize(&cdata, hashout);
     sha256_output_hex(&cdata, node->computed_hash);
-
-    debug_print("Internal node hash: %s", node->computed_hash);
 
     return;
 }
