@@ -2,7 +2,6 @@
 #include <peer_2_peer/peer_handler.h>
 #include <peer_2_peer/packet.h>
 #include <peer_2_peer/package.h>
-#include <cli.h>
 #include <chk/pkgchk.h>
 #include <sys/socket.h>
 #include <tree/merkletree.h>

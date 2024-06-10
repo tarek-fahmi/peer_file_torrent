@@ -264,7 +264,7 @@ int bpkg_validate_node_completion(mtree_node_t* node) {
 mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, int mode)
 {
     mtree_node_t** nodes;
-    uint16_t count;
+    uint16_t count =0;
     if (mode == ALL)
     {
         nodes = mtree->nodes;

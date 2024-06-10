@@ -138,7 +138,6 @@ void* q_dequeue(queue_t* qobj) {
     void* data = temp->data;
     free(temp);
     return
-    
      data;
 }
 

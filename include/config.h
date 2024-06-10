@@ -17,14 +17,14 @@
 
 typedef struct config_object{
     char directory[MAX_DIRECTORY_LENGTH];
-    uint16_t max_peers;
+    uint32_t max_peers;
     uint32_t port;
 }config_t;
 
-static int parse_entry(char* line, config_t* c_obj);
+ int parse_entry(char* line, config_t* c_obj);
 
-static int check_directory(char* pathname);
+ int check_directory(char* pathname);
 
-int config_load(char* filename, config_t* c_obj);
+config_t* config_load(char* filename);
 
 #endif
