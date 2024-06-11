@@ -3,7 +3,7 @@
 #define _GNU_SOURCE
 
 #ifdef DEBUG
-#define debug_print(fmt, ...) printf("DEBUG: " fmt, ##__VA_ARGS__)
+#define debug_print(fmt, ...) fprintf(stderr, "DEBUG: " fmt, ##__VA_ARGS__)
 #else
 #define debug_print(fmt, ...) do {} while (0)
 #endif
@@ -27,8 +27,6 @@
 #include <signal.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/select.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 
 typedef struct q_node {
@@ -37,50 +35,125 @@ typedef struct q_node {
 } q_node_t;
 
 typedef struct {
-    q_node_t* head, * tail;
+    q_node_t* head;
+    q_node_t* tail;
 } queue_t;
 
+/**
+ * @brief Removes leading and trailing whitespace from a string.
+ *
+ * @param str Pointer to the string to trim.
+ * @return Pointer to the trimmed string.
+ */
+char* trim_whitespace(char* str);
+
+/**
+ * @brief Sanitizes and processes a file path.
+ *
+ * @param path Pointer to the original path.
+ * @return Pointer to the sanitized path.
+ */
+char* sanitize_path(const char* path);
+
+/**
+ * @brief Opens a file and maps it to shared memory.
+ *
+ * @param path Pointer to the file path.
+ * @return Pointer to the shared memory.
+ */
 void* open_file_and_map_to_shared_memory(const char* path);
 
+/**
+ * @brief Allocates memory and handles errors.
+ *
+ * @param size Amount of memory to allocate.
+ * @return Pointer to the allocated memory.
+ */
 void* my_malloc(size_t size);
 
+/**
+ * @brief Prints data in hexadecimal format.
+ *
+ * @param data Pointer to the data to print.
+ * @param size Size of the data.
+ */
 void print_hex(const char* data, size_t size);
 
 /**
- * @brief  Merges two character arrays, and returns the concatenation of the
- * arrays (unsorted).
+ * @brief Merges two arrays into one.
+ *
+ * @param a First array.
+ * @param b Second array.
+ * @param asize Size of the first array.
+ * @param bsize Size of the second array.
+ * @return Pointer to the merged array.
  */
 void** merge_arrays(void** a, void** b, int asize, int bsize);
 
 /**
- * @brief  Truncates a string if it is longer than a specified length, else does
- * nothing.
- * @param  str: The string to truncate
- * @param  limit: The max length of the string
+ * @brief Truncates a string if it exceeds a specified length.
+ *
+ * @param str Pointer to the string to truncate.
+ * @param limit Maximum length of the string.
+ * @return Pointer to the truncated string.
  */
 char* truncate_string(char* str, int limit);
 
+/**
+ * @brief Checks if an object is NULL.
+ *
+ * @param obj Pointer to the object.
+ * @return 1 if the object is NULL, 0 otherwise.
+ */
 int check_null(void* obj);
 
+/**
+ * @brief Checks for errors and prints a message if an error occurs.
+ *
+ * @param return_value Return value to check.
+ * @param error_msg Pointer to the error message.
+ * @return The return value.
+ */
 int check_err(int return_value, char* error_msg);
 
-/* The following code pertains to my queue in linked list ADT, inspired by my
- * code from "Assignment 2: Multi Type Linked List" */
+// Queue functions
 
- // Initialies an empty queue on the heap, returning a pointer.
+/**
+ * @brief Initializes an empty queue.
+ *
+ * @return Pointer to the initialized queue.
+ */
 queue_t* q_init();
 
-// Enqueues a queue element, storing data in the end of the linked list and
-// allocating memory.
+/**
+ * @brief Adds an element to the end of the queue.
+ *
+ * @param qobj Pointer to the queue.
+ * @param data Pointer to the data to enqueue.
+ */
 void q_enqueue(queue_t* qobj, void* data);
 
-// Dequeues a node, removing it from the head of the list and deallocating
-// memory.
+/**
+ * @brief Removes and returns the element at the front of the queue.
+ *
+ * @param qobj Pointer to the queue.
+ * @return Pointer to the dequeued data.
+ */
 void* q_dequeue(queue_t* qobj);
 
+/**
+ * @brief Checks if the queue is empty.
+ *
+ * @param qobj Pointer to the queue.
+ * @return 1 if the queue is empty, 0 otherwise.
+ */
 int q_empty(queue_t* qobj);
 
-// Destroys the queue, freeing all dynamically allocated memory.
+/**
+ * @brief Destroys the queue and frees all allocated memory.
+ *
+ * @param qobj Pointer to the queue.
+ */
 void q_destroy(queue_t* qobj);
 
 #endif

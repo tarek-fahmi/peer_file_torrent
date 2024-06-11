@@ -18,8 +18,8 @@
 /**
  *@brief Execute command triggered peer connection: Try
  */
-void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers,
-                 bpkgs_t* bpkgs);
+void cli_connect(char* ip, int port, peers_t* peers,
+    bpkgs_t* bpkgs);
 
 /**
  * @brief Add a package to manage.
@@ -29,7 +29,7 @@ void cli_connect(char* ip, int port, request_q_t* reqs_q, peers_t* peers,
  *
  * @returns -1 if unsuccessful.
  */
-void cli_disconnect(char* ip, int port, peers_t* peers, request_q_t* reqs_q);
+void cli_disconnect(char* ip, int port, peers_t* peers);
 /**
  * @brief Add a package to manage.
  *
@@ -70,7 +70,7 @@ void cli_list_peers(peers_t* peers);
  *
  * @returns -1 if unsuccessful.
  */
-void cli_fetch(char* args, bpkgs_t* bpkgs, peers_t* peers, request_q_t* reqs_q);
+void cli_fetch(char* args, bpkgs_t* bpkgs, peers_t* peers);
 
 /**
  * @brief Parses a command, identifying and running valid commands with
@@ -81,7 +81,5 @@ void cli_fetch(char* args, bpkgs_t* bpkgs, peers_t* peers, request_q_t* reqs_q);
  *
  * @returns Intger, 0 if valid command, -1 if invalid command.
  */
-int cli_process_command(char* input, request_q_t* reqs_q, peers_t* peers,
-                         bpkgs_t* bpkgs);
-
-void cli_run(request_q_t* reqs_q, peers_t* peers, bpkgs_t* bpkgs);
+int cli_process_command(char* input, peers_t* peers,
+    bpkgs_t* bpkgs);

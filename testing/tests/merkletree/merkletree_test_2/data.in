@@ -1,0 +1,5 @@
+Validate Subtree Structure
+./testing/bin/pkg_main ./testing/resources/valid_2.bpkg 119e3ab3f4cd718e3e00d2de840a61b0c5b3676cefa5427da851fb2820069f6d -hashes_of
+./testing/bin/pkg_main ./testing/resources/valid_2.bpkg 15a6e08a26839d0730ca8d556ee39e6ce123cd35207c410ac59d7494b6b000d8 -hashes_of
+./testing/bin/pkg_main ./testing/resources/valid_1.bpkg 84897087138e057ac02e69c16661425cd22d3a9b1b407b2f61b66573ca582845 -hashes_of
+./testing/bin/pkg_main ./testing/resources/valid_1.bpkg 399e5240336b33f58281c726106f20c00fdbba2631a7f9b692be25c9882a1266 -hashes_of

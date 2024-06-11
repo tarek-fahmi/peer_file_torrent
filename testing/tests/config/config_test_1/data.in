@@ -1,0 +1,3 @@
+Valid Config Loading
+./testing/bin/btide ./testing/resources/config.cfg
+QUIT

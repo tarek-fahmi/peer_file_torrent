@@ -1,103 +1,96 @@
 #ifndef CHK_PKG_HELPER_H
 #define CHK_PKG_HELPER_H
 
-// Local Dependencies:=
 #include <chk/pkgchk.h>
 #include <crypt/sha256.h>
 #include <string.h>
 #include <tree/merkletree.h>
 #include <utilities/my_utils.h>
 
-bpkg_t *bpkg_create();
+/**
+ * @brief Extract the directory path from a given file path.
+ *
+ * @param filepath Path to the file.
+ * @param filename Buffer to store the extracted directory path.
+ * @param max_len Maximum length of the buffer.
+ */
+void extract_directory(const char* filepath, char* filename, size_t max_len);
 
 /**
- * Unpacks a key-value pair which is stored on one line.
+ * @brief Process and sanitize a filename from a given line.
  *
- * @param bpkg, pointer to empty bpkg object
- * @param bpkgString, package file stored in continuous and complete string.
- *
- * @return bpkg, pointer to constructed bpkg object
+ * @param line Input line containing the filename.
+ * @param filename Buffer to store the processed filename.
+ * @param max_len Maximum length of the buffer.
  */
-int bpkg_monoparse(bpkg_t *bpkg, char *key, char *context);
-/**
- * Unpacks a key-value pair which is stored on multiple lines.
- *
- * @param bpkg, pointer to empty bpkg object
- * @param bpkgString, package file stored in continuous and complete string.
- *
- * @return bpkg, pointer to constructed bpkg object
- */
-int bpkg_multiparse(bpkg_t *bpkg, char *key, char *data);
-
-void print_parsed_data(mtree_t *mtree);
-
-void combine_nodes(mtree_t *mtree);
+void process_filename(const char* line, char* filename, size_t max_len);
 
 /**
- * Unpacks the contents of the package file into a bpkg_tect.
+ * @brief Create an empty bpkg object.
  *
- * @param bpkg, pointer to empty bpkg object
- * @param bpkgString, package file stored in continuous and complete string.
- *
- * @return bpkg, pointer to constructed bpkg object
+ * @return Pointer to the created bpkg object.
  */
-int bpkg_unpack(bpkg_t *bpkg);
-
-void load_chunk(mtree_node_t *node, uint32_t offset, uint32_t size);
+bpkg_t* bpkg_create();
 
 /**
- * Recursively find the uppermost hash which is valid.
+ * @brief Unpack the contents of a package file into a bpkg object.
  *
- * @param root, largest completed subtree root.
- * @return The root of the largest subtree.
+ * @param bpkg Pointer to the empty bpkg object.
+ * @param bpkgString Package file stored as a continuous string.
+ * @return 0 on success, -1 on failure.
  */
-char **bpkg_get_largest_completed_subtree(mtree_node_t *root, int *count);
+int bpkg_unpack(bpkg_t* bpkg);
 
 /**
- * Deallocates the chunk object associated
- * with a lead node, and any dynamically allocated
- * attributes.
+ * @brief Find the uppermost valid subtree root in a Merkle tree.
+ *
+ * @param root Root node of the subtree.
+ * @param count Pointer to store the number of valid nodes found.
+ * @return Array of hashes of the largest completed subtree.
  */
-void bpkg_chunk_destroy(chunk_t *cobj);
+char** bpkg_get_largest_completed_subtree(mtree_node_t* root, int* count);
 
 /**
- * Recursively find the uppermost hash which is valid.
+ * @brief Deallocate a chunk object and its attributes.
  *
- * @param node, the root node representing the subtree of concern.
- * @param size, the total number of nodes
- * @return Largest completed subtree root
+ * @param cobj Chunk object to be destroyed.
  */
-char **bpkg_get_subtree_chunks(mtree_node_t *node, int *numchunks);
+void bpkg_chunk_destroy(chunk_t* cobj);
 
 /**
- * @brief Given a node hash, return the corresponding node if it exists.
+ * @brief Combine nodes in a Merkle tree.
  *
- * @param node, the node representing the subtree which contains the node
- * corresponding to the hash.
- * @param query_hash, the hash corresponding to the node we are searching for in
- * the subtree we are searching through.
- *
- * @returns Node corresponding to the hash we are querying in the merkle
- * (sub)tree, returning -1 if the node doesn't exist.
+ * @param mtree Pointer to the Merkle tree.
  */
-mtree_node_t *bpkg_find_node_from_hash(mtree_t *mtree, char *query_hash,
-                                       int mode);
+void combine_nodes(mtree_t* mtree);
 
 /**
- * @brief Given a node hash, return the corresponding node if it exists.
+ * @brief Retrieve all chunk hashes in a subtree.
  *
- * @param node, the node representing the subtree which contains the node
- * corresponding to the hash.
- * @param query_hash, the hash corresponding to the node we are searching for in
- * the subtree we are searching through.
- * @param offset, the offset where the node should be expected to lie in the
- * file. This will be used to narrow down recursive search.
- *
- * @returns Node corresponding to the hash we are querying in the merkle
- * (sub)tree, returning -1 if the node doesn't exist.
+ * @param node Root node of the subtree.
+ * @param numchunks Pointer to store the number of chunks found.
+ * @return Array of chunk hashes.
  */
-mtree_node_t *bpkg_find_node_from_hash_offset(mtree_node_t *root,
-                                              char *query_hash,
-                                              uint32_t offset);
+char** bpkg_get_subtree_chunks(mtree_node_t* node, int* numchunks);
+
+/**
+ * @brief Find a node by hash in a Merkle tree.
+ *
+ * @param mtree Pointer to the Merkle tree.
+ * @param query_hash Hash of the node to find.
+ * @param mode Search mode (INTERNAL, CHUNK, ALL).
+ * @return Pointer to the found node, or NULL if not found.
+ */
+mtree_node_t* bpkg_find_node_from_hash(mtree_t* mtree, char* query_hash, int mode);
+
+/**
+ * @brief Find a node by hash and offset in a Merkle tree.
+ *
+ * @param root Root node of the subtree.
+ * @param query_hash Hash of the node to find.
+ * @param offset Expected offset of the node in the file.
+ * @return Pointer to the found node, or NULL if not found.
+ */
+mtree_node_t* bpkg_find_node_from_hash_offset(mtree_node_t* root, char* query_hash, uint32_t offset);
 
 #endif

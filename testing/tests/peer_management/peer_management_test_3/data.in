@@ -1,0 +1,6 @@
+Peer Invalid Connection Attempt
+./testing/bin/btide ./testing/resources/configs/config.cfg
+CONNECT 127.0.0.1:0000
+PEERS
+DISCONNECT 127.0.0.1:0000
+QUIT

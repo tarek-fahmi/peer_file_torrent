@@ -1,0 +1,3 @@
+Omit Invalid Chunks
+./testing/bin/pkg_main ./testing/resources/invalid_1.bpkg -chunk_check
+./testing/bin/pkg_main ./testing/resources/invalid_2.bpkg -chunk_check

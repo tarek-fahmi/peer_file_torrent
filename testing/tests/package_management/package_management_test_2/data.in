@@ -1,0 +1,8 @@
+Managing Packages
+./testing/bin/btide ./testing/resources/config/config.cfg
+ADDPACKAGE valid_1.bpkg
+ADDPACKAGE valid_2.bpkg
+PACKAGES
+REMPACKAGE valid_2.bpkg
+PACKAGES
+QUIT

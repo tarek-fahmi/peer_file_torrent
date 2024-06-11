@@ -1,7 +1,10 @@
+#include <string.h> 
 #include <peer_2_peer/packet.h>
 #include <utilities/my_utils.h>
+#include <stdlib.h>
+#include <math.h>
 
-#define PAYLOAD_MAX (4092)
+#define PAYLOAD_MAX  (4096)
 #define DATA_MAX (2998)
 #define REQUESTS_MAX (1024)
 
@@ -13,86 +16,199 @@
 #define PKT_MSG_PNG 0xFF
 #define PKT_MSG_POG 0x00
 
-void pkt_marshall(pkt_t* pkt_o, uint8_t* data_marshalled) {
-     uint8_t* curr_ptr = data_marshalled;
 
-     memcpy(curr_ptr, &pkt_o->msg_code,
-          sizeof(pkt_o->msg_code));  // Use the address of msg_code
-     curr_ptr += sizeof(pkt_o->msg_code);
+/**
+ * @brief Convert packet to byte array
+ * @param pkt Pointer to the packet
+ * @param data_marshalled Byte array to store marshalled data
+ */
+void pkt_marshall(pkt_t* pkt, uint8_t* data_marshalled) {
+     size_t offset = 0;
 
-     memcpy(curr_ptr, &pkt_o->error,
-          sizeof(pkt_o->error));  // Use the address of error
-     curr_ptr += sizeof(pkt_o->error);
+     // Copy message code
+     memcpy(data_marshalled + offset, &pkt->msg_code, sizeof(pkt->msg_code));
+     offset += sizeof(pkt->msg_code);
 
-     payload_t* pl = pkt_o->payload;
+     // Copy error code
+     memcpy(data_marshalled + offset, &pkt->error, sizeof(pkt->error));
+     offset += sizeof(pkt->error);
 
-     memcpy(curr_ptr, &pl->offset, sizeof(pl->offset));
-     curr_ptr += sizeof(pl->offset);
+     if ( pkt->msg_code == PKT_MSG_REQ ) {
+          // Copy payload offset
+          memcpy(data_marshalled + offset, &pkt->payload.req.offset, sizeof(pkt->payload.req.offset));
+          offset += sizeof(pkt->payload.req.offset);
 
-     memcpy(curr_ptr, &pl->size, sizeof(pl->size));
-     curr_ptr += sizeof(pl->size);
+          // Copy payload data
+          memcpy(data_marshalled + offset, pkt->payload.req.data, sizeof(pkt->payload.req.data));
+          offset += sizeof(pkt->payload.req.data);
 
-     memcpy(curr_ptr, pl->hash, sizeof(pl->hash));
-     curr_ptr += sizeof(pl->hash);
+          // Copy payload size
+          memcpy(data_marshalled + offset, &pkt->payload.req.size, sizeof(pkt->payload.req.size));
+          offset += sizeof(pkt->payload.req.size);
 
-     memcpy(curr_ptr, pl->ident, sizeof(pl->ident));
-     curr_ptr += sizeof(pl->ident);
+          // Copy payload identifier
+          memcpy(data_marshalled + offset, pkt->payload.req.ident, sizeof(pkt->payload.req.ident));
+          offset += sizeof(pkt->payload.req.ident);
 
-     memcpy(curr_ptr, pl->data, sizeof(pl->data));
+          // Copy payload hash
+          memcpy(data_marshalled + offset, pkt->payload.req.hash, sizeof(pkt->payload.req.hash));
+     }
+     else {
+          // Copy payload offset
+          memcpy(data_marshalled + offset, &pkt->payload.res.offset, sizeof(pkt->payload.res.offset));
+          offset += sizeof(pkt->payload.res.offset);
+
+          // Copy payload data
+          memcpy(data_marshalled + offset, pkt->payload.res.data, sizeof(pkt->payload.res.data));
+          offset += sizeof(pkt->payload.res.data);
+
+          // Copy payload size
+          memcpy(data_marshalled + offset, &pkt->payload.res.size, sizeof(pkt->payload.res.size));
+          offset += sizeof(pkt->payload.res.size);
+
+          // Copy payload identifier
+          memcpy(data_marshalled + offset, pkt->payload.res.ident, sizeof(pkt->payload.res.ident));
+          offset += sizeof(pkt->payload.res.ident);
+
+          // Copy payload hash
+          memcpy(data_marshalled + offset, pkt->payload.res.hash, sizeof(pkt->payload.res.hash));
+     }
 }
+/** @brief Convert byte array back to packet
+* @param pkt_i Pointer to the packet
+* @param data_marshalled Byte array with marshalled data
+**/
 
 void pkt_unmarshall(pkt_t* pkt_i, uint8_t* data_marshalled) {
-     uint8_t* curr_ptr = data_marshalled;
+     size_t offset = 0;
 
-     memcpy(&pkt_i->msg_code, curr_ptr, sizeof(pkt_i->msg_code));
-     curr_ptr += sizeof(pkt_i->msg_code);
+     // Extract message code
+     memcpy(&pkt_i->msg_code, data_marshalled + offset, sizeof(pkt_i->msg_code));
+     offset += sizeof(pkt_i->msg_code);
 
-     memcpy(&pkt_i->error, curr_ptr, sizeof(pkt_i->error));
-     curr_ptr += sizeof(pkt_i->error);
+     // Extract error code
+     memcpy(&pkt_i->error, data_marshalled + offset, sizeof(pkt_i->error));
+     offset += sizeof(pkt_i->error);
 
-     memcpy(&pkt_i->payload->offset, curr_ptr, sizeof(pkt_i->payload->offset));
-     curr_ptr += sizeof(pkt_i->payload->offset);
+     if ( pkt_i->msg_code == PKT_MSG_REQ ) {
+          // Extract payload offset
+          memcpy(&pkt_i->payload.req.offset, data_marshalled + offset, sizeof(pkt_i->payload.req.offset));
+          offset += sizeof(pkt_i->payload.req.offset);
 
-     memcpy(&pkt_i->payload->size, curr_ptr, sizeof(pkt_i->payload->size));
-     curr_ptr += sizeof(pkt_i->payload->size);
+          // Extract payload data
+          memcpy(pkt_i->payload.req.data, data_marshalled + offset, sizeof(pkt_i->payload.req.data));
+          offset += sizeof(pkt_i->payload.req.data);
 
-     memcpy(pkt_i->payload->hash, curr_ptr, sizeof(pkt_i->payload->hash));
-     curr_ptr += sizeof(pkt_i->payload->hash);
+          // Extract payload size
+          memcpy(&pkt_i->payload.req.size, data_marshalled + offset, sizeof(pkt_i->payload.req.size));
+          offset += sizeof(pkt_i->payload.req.size);
 
-     memcpy(pkt_i->payload->ident, curr_ptr, sizeof(pkt_i->payload->ident));
-     curr_ptr += sizeof(pkt_i->payload->ident);
+          // Extract payload identifier
+          memcpy(pkt_i->payload.req.ident, data_marshalled + offset, sizeof(pkt_i->payload.req.ident));
+          offset += sizeof(pkt_i->payload.req.ident);
 
-     memcpy(pkt_i->payload->data, curr_ptr, sizeof(pkt_i->payload->data));
+          // Extract payload hash
+          memcpy(pkt_i->payload.req.hash, data_marshalled + offset, sizeof(pkt_i->payload.req.hash));
+     }
+     else {
+          // Extract payload offset
+          memcpy(&pkt_i->payload.res.offset, data_marshalled + offset, sizeof(pkt_i->payload.res.offset));
+          offset += sizeof(pkt_i->payload.res.offset);
+
+          // Extract payload data
+          memcpy(pkt_i->payload.res.data, data_marshalled + offset, sizeof(pkt_i->payload.res.data));
+          offset += sizeof(pkt_i->payload.res.data);
+
+          // Extract payload size
+          memcpy(&pkt_i->payload.res.size, data_marshalled + offset, sizeof(pkt_i->payload.res.size));
+          offset += sizeof(pkt_i->payload.res.size);
+
+          // Extract payload identifier
+          memcpy(pkt_i->payload.res.ident, data_marshalled + offset, sizeof(pkt_i->payload.res.ident));
+          offset += sizeof(pkt_i->payload.res.ident);
+
+          // Extract payload hash
+          memcpy(pkt_i->payload.res.hash, data_marshalled + offset, sizeof(pkt_i->payload.res.hash));
+     }
 }
-
-pkt_t* pkt_create(uint8_t msg, uint8_t err, payload_t* payload) {
+/**
+ * @brief Create a new packet
+ * @param msg Message code
+ * @param err Error code
+ * @param payload Packet payload
+ * @return Pointer to the new packet
+ */
+pkt_t* pkt_create(uint16_t msg, uint16_t err, payload_t payload) {
      pkt_t* pkt = (pkt_t*)my_malloc(sizeof(pkt_t));
      if ( !pkt ) {
-          // Handle allocation failure if needed
           return NULL;
      }
-     pkt->error = err;
+     memset(pkt, 0, sizeof(pkt_t)); // Zero out the memory
      pkt->msg_code = msg;
+     pkt->error = err;
      pkt->payload = payload;
      return pkt;
 }
 
-payload_t* payload_create(uint32_t offset, uint16_t size, char* hash,
-     char* ident, uint8_t* data) {
-     payload_t* pl = (payload_t*)my_malloc(sizeof(payload_t));
-     pl->offset = offset;
-     pl->size = size;
-     memcpy(pl->hash, hash, SHA256_HEXLEN);
-     memcpy(pl->ident, ident, IDENT_MAX);  // Corrected field
-     memcpy(pl->data, data, DATA_MAX);
+/**
+ * @brief Create a new response payload
+ * @param offset Data offset
+ * @param size Data size
+ * @param hash Hash string
+ * @param ident Identifier string
+ * @param data Pointer to data
+ * @return New payload
+ */
+payload_t payload_create_res(uint32_t offset, uint16_t size, char* hash, char* ident, uint8_t* data) {
+     payload_t pl;
+     memset(&pl, 0, sizeof(payload_t)); // Default payload content is 0.
+     pl.res.offset = offset;
+     pl.res.size = size;
+     if ( hash ) {
+          strncpy(pl.res.hash, hash, SHA256_HEXLEN);
+     }
+     if ( ident ) {
+          strncpy(pl.res.ident, ident, IDENT_MAX);
+     }
+     if ( data && size <= DATA_MAX ) {
+          memcpy(pl.res.data, data, size);
+     }
      return pl;
 }
 
-void payload_destroy(payload_t* payload) { free(payload); }
-
-void pkt_destroy(pkt_t* pkt) {
-     if ( pkt->payload ) {
-          payload_destroy(pkt->payload);
+/**
+ * @brief Create a new request payload
+ * @param offset Data offset
+ * @param size Data size
+ * @param hash Hash string
+ * @param ident Identifier string
+ * @param data Pointer to data
+ * @return New payload
+ */
+payload_t payload_create_req(uint32_t offset, uint32_t size, char* hash, char* ident, uint8_t* data) {
+     payload_t pl;
+     memset(&pl, 0, sizeof(payload_t)); // Default payload content is 0.
+     pl.req.offset = offset;
+     pl.req.size = size;
+     if ( hash ) {
+          strncpy(pl.req.hash, hash, SHA256_HEXLEN);
      }
-     free(pkt);
+     if ( ident ) {
+          strncpy(pl.req.ident, ident, IDENT_MAX - 2);
+     }
+     if ( data && size <= DATA_MAX ) {
+          memcpy(pl.req.data, data, size);
+     }
+     return pl;
 }
+
+/**
+ * @brief Free packet memory
+ * @param pkt Pointer to the packet
+ */
+void pkt_destroy(pkt_t* pkt) {
+     if ( pkt ) {
+          free(pkt);
+     }
+}
+

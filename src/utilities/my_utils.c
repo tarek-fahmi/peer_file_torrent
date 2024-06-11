@@ -8,24 +8,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 // Open a file in shared memory.
 void* open_file_and_map_to_shared_memory(const char* path) {
     int fd = open(path, O_RDONLY);
-    if (fd == -1) {
+    if ( fd == -1 ) {
         perror("Failed to open package...");
         exit(EXIT_FAILURE);
     }
 
     struct stat sb;
-    if (fstat(fd, &sb) == -1) {
+    if ( fstat(fd, &sb) == -1 ) {
         perror("Failed to get file size");
         close(fd);
         return NULL;
     }
 
     void* addr = mmap(NULL, sb.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (addr == MAP_FAILED) {
+    if ( addr == MAP_FAILED ) {
         perror("Failed to map file to memory");
         close(fd);
         return NULL;
@@ -36,10 +37,39 @@ void* open_file_and_map_to_shared_memory(const char* path) {
 }
 
 
-void *my_malloc(size_t size)
+// Function to sanitize and process file path
+char* sanitize_path(const char* path) {
+    char* sanitized_path = (char*)malloc(strlen(path) + 1);
+    if ( sanitized_path ) {
+        strcpy(sanitized_path, path);
+        return trim_whitespace(sanitized_path);
+    }
+    return NULL;
+}
+
+char* trim_whitespace(char* str) {
+    char* end;
+
+    // Trim leading space
+    while ( isspace((unsigned char)*str) ) str++;
+
+    if ( *str == 0 ) // All spaces?
+        return str;
+
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+    while ( end > str && isspace((unsigned char)*end) ) end--;
+
+    // Write new null terminator
+    end[1] = '\0';
+
+    return str;
+}
+
+void* my_malloc(size_t size)
 {
     void* heap_obj = malloc(size);
-    if (heap_obj == NULL)
+    if ( heap_obj == NULL )
     {
         perror("Malloc failed... :(");
         free(heap_obj);
@@ -53,7 +83,7 @@ void *my_malloc(size_t size)
  * @brief  Merges two arrays, and returns the concatenation of the arrays (unsorted).
  */
 void** merge_arrays(void** a, void** b, int asize, int bsize) {
-    void** newarr = (void**) my_malloc((asize + bsize) * sizeof(void*));
+    void** newarr = (void**)my_malloc(( asize + bsize ) * sizeof(void*));
     memcpy(newarr, a, asize * sizeof(void*));
     memcpy(newarr + asize, b, bsize * sizeof(void*));
 
@@ -70,20 +100,20 @@ void** merge_arrays(void** a, void** b, int asize, int bsize) {
  */
 char* truncate_string(char* str, int limit)
 {
-    if (str != NULL && limit >= 0 && strlen(str) > limit) {
+    if ( str != NULL && limit >= 0 && strlen(str) > limit ) {
         str[limit] = '\0';
     }
     return str;
 }
 
-int check_null(void* obj){
-    if (obj == NULL) return -1;
+int check_null(void* obj) {
+    if ( obj == NULL ) return -1;
     else return 0;
 }
 
 
-int check_err(int return_value, char* error_msg){
-    if (return_value < 0){
+int check_err(int return_value, char* error_msg) {
+    if ( return_value < 0 ) {
         fprintf(stderr, "%s", error_msg);
         exit(EXIT_FAILURE);
     }
@@ -104,8 +134,8 @@ queue_t* q_init() {
 
 // Enqueues a queue element, storing data in the end of the linked list and allocating memory.
 void q_enqueue(queue_t* qobj, void* data) {
-    q_node_t* new_node = (q_node_t*) my_malloc(sizeof(q_node_t));
-    if (new_node == NULL) {
+    q_node_t* new_node = (q_node_t*)my_malloc(sizeof(q_node_t));
+    if ( new_node == NULL ) {
         perror("Failed to allocate memory for queue node...");
         exit(EXIT_FAILURE);
     }
@@ -113,9 +143,10 @@ void q_enqueue(queue_t* qobj, void* data) {
     new_node->data = data;
     new_node->next = NULL;
 
-    if (qobj->tail != NULL) {
+    if ( qobj->tail != NULL ) {
         qobj->tail->next = new_node;
-    } else {
+    }
+    else {
         qobj->head = new_node;
     }
 
@@ -124,26 +155,26 @@ void q_enqueue(queue_t* qobj, void* data) {
 
 // Dequeues a node, removing it from the head of the list and deallocating memory.
 void* q_dequeue(queue_t* qobj) {
-    if (qobj->head == NULL) {
+    if ( qobj->head == NULL ) {
         return NULL; // Queue is empty
     }
 
     q_node_t* temp = qobj->head;
     qobj->head = qobj->head->next;
 
-    if (qobj->head == NULL) {
+    if ( qobj->head == NULL ) {
         qobj->tail = NULL; // Queue is now empty
     }
 
     void* data = temp->data;
     free(temp);
     return
-     data;
+        data;
 }
 
 int q_empty(queue_t* qobj)
 {
-    if (qobj->head == NULL && qobj->tail == NULL)
+    if ( qobj->head == NULL && qobj->tail == NULL )
     {
         return 1;
     }
@@ -154,7 +185,7 @@ int q_empty(queue_t* qobj)
 void q_destroy(queue_t* qobj) {
     q_node_t* current = qobj->head;
 
-    while (current != NULL) {
+    while ( current != NULL ) {
         q_node_t* temp = current;
         current = current->next;
         free(temp);
@@ -168,6 +199,6 @@ void q_node_destroy(q_node_t* node)
     return;
 }
 
-void print_hex(const char *data, size_t size) {
+void print_hex(const char* data, size_t size) {
     printf("\n");
 }

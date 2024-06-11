@@ -9,28 +9,38 @@
 #include <tree/merkletree.h>
 #include <utilities/my_utils.h>
 
-int pkt_fetch_from_peer(peer_t* peer, pkt_t* pkt, bpkg_t* bpkg,
-     request_q_t* reqs) {
+
+/* Packet fetching and handling for peer communication and package management */
+
+/**
+ * @brief Fetch a packet from a specified peer.
+ *
+ * @param peer Pointer to the peer
+ * @param pkt Packet to fetch
+ * @param bpkg Associated package
+ * @return int 0 on success, -1 on failure
+ */
+int pkt_fetch_from_peer(peer_t* peer, pkt_t* pkt, bpkg_t* bpkg) {
      bool pkt_found = false;
+     request_q_t* reqs = peer->reqs_q;
 
      if ( !pkt ) {
           debug_print("Failed to prepare Peer[%i]'s pkt...", peer->port);
           return -1;
      }
 
-     request_t* req = req_create(pkt, peer);
+     request_t* req = req_create(pkt);
      if ( !req ) {
           debug_print("Failed to create request...");
           return -1;
      }
 
-     req->peer = peer;
-     req->pkt = pkt;
-
+     debug_print("Enqueuing request for Peer[%i]...", peer->port);
      pthread_mutex_lock(&reqs->lock);
      reqs_enqueue(reqs, req);
      pthread_mutex_unlock(&reqs->lock);
 
+     // Wait 3s for the peer handler recieve ACP packet:
      struct timespec ts;
      clock_gettime(CLOCK_REALTIME, &ts);
      ts.tv_sec += 3;
@@ -42,112 +52,90 @@ int pkt_fetch_from_peer(peer_t* peer, pkt_t* pkt, bpkg_t* bpkg,
      }
      pthread_mutex_unlock(&req->lock);
 
+     // Check connection success status:
      if ( req->status == SUCCESS ) {
           pkt_found = true;
+          debug_print("Request for Peer[%i] completed successfully.", peer->port);
+     }
+     else {
+          debug_print("Request for Peer[%i] timed out or failed.", peer->port);
      }
 
-     req_destroy(req);  // Ensure proper cleanup
+     req_destroy(req);
 
      return pkt_found ? 0 : -1;
 }
-// For this file, request this chknode's data, from this peer.
+
+
+/**
+ * @brief Prepare a request packet for a chunk.
+ *
+ * @param bpkg Pointer to the package
+ * @param node Node in the Merkle tree
+ * @return pkt_t* Pointer to the prepared packet
+ */
 pkt_t* pkt_prepare_request_pkt(bpkg_t* bpkg, mtree_node_t* node) {
      if ( !bpkg || !node ) {
           return NULL;
      }
+
 
      chunk_t* chk = (chunk_t*)node->chunk;
      if ( !chk ) {
           return NULL;
      }
 
-     payload_t* payload = payload_create(
-          chk->offset, chk->size, node->expected_hash, bpkg->ident, NULL);
-     if ( !payload ) {
-          return NULL;
-     }
+     // Prepare a request for package chunk:
+     payload_t payload = payload_create_req(chk->offset, chk->size, node->expected_hash, bpkg->ident, NULL);
 
      pkt_t* pkt = pkt_create(PKT_MSG_REQ, 0, payload);
-     if ( !pkt ) {
-          payload_destroy(payload);  // Ensure proper cleanup
-     }
-
      return pkt;
 }
 
-payload_t* payload_get_res_for_req(payload_t* payload, bpkgs_t* bpkgs) {
-     if ( !payload || !bpkgs ) {
-          return NULL;
-     }
+/**
+ * @brief Download payload data to a chunk node.
+ *
+ * @param chk_node Chunk node to update
+ * @param payload Payload data
+ * @return int 0 on success, -1 on failure
+ */
 
-     bpkg_t* bpkg = pkg_find_by_ident(bpkgs, payload->ident);
-     if ( !bpkg ) {
-          return NULL;
-     }
+ /**
+  * @brief Attempt to install payload data into a package.
+  *
+  * @param bpkg Target package
+  * @param payload Payload data
+  * @return int 1 on success, -1 on failure
+  */
+int pkg_try_install_payload(bpkg_t* bpkg, payload_t payload) {
+     mtree_node_t* chk_node = bpkg_find_node_from_hash(bpkg->mtree, payload.res.hash, CHUNK);
 
-     mtree_node_t* chk_node =
-          bpkg_find_node_from_hash(bpkg->mtree, payload->hash, CHUNK);
-     if ( !chk_node ) {
-          return NULL;
-     }
+     if ( chk_node ) debug_print("Received chunk should be valid...\n");
 
-     if ( strncmp(chk_node->expected_hash, chk_node->computed_hash,
-          SHA256_HEXLEN) != 0 ) {
-          debug_print("Local copy of requested chunk is incomplete...\n");
-          return NULL;
+     if ( pkt_chk_update_data(bpkg->mtree, chk_node, payload) < 0 ) {
+          return -1;
      }
-
-     chunk_t* chk = chk_node->chunk;
-     return payload_create(chk->offset, chk->size, chk_node->computed_hash,
-          bpkg->ident, chk->data);
+     return 1;
 }
 
-int pkg_download_payload(mtree_node_t* chk_node, payload_t* payload) {
-     if ( pkt_chk_update_data(chk_node, payload) < 0 ) {
-          debug_print("Data installed is invalid...\n");
-          return -1;  // Return -1 to indicate failure
-     }
-     debug_print("Successfully downloaded data into local bpkg!\n");
-
-     if ( !check_chunk(chk_node) ) {
-          debug_print("Chunk is invalid though:(...\n");
-          return -1;  // Return -1 to indicate invalid chunk
-     }
-
-     debug_print("Downloaded chunk is valid!\n");
-     return 1;  // Return 1 to indicate success
-}
-
-int pkg_try_install_payload(bpkg_t* bpkg, payload_t* payload) {
-     mtree_node_t* chk_node =
-          bpkg_find_node_from_hash(bpkg->mtree, payload->hash, CHUNK);
-
-     if ( !chk_node ||
-          strncmp(chk_node->expected_hash, payload->hash, SHA256_HEXLEN) != 0 ) {
-          debug_print("Payload hash is incorrect...\n");
-          return -1;  // Return -1 to indicate hash mismatch
-     }
-
-     debug_print("Received chunk should be valid...\n");
-     if ( pkg_download_payload(chk_node, payload) < 0 ) {
-          return -1;  // Return -1 to indicate failure
-     }
-     return 1;  // Return 1 to indicate success
-}
-
+/**
+ * @brief Install an incoming packet's payload.
+ *
+ * @param pkt_in Incoming packet
+ * @param peer Source peer
+ * @param bpkgs Package manager
+ * @return int 1 on success, -1 on failure
+ */
 int pkt_install(pkt_t* pkt_in, peer_t* peer, bpkgs_t* bpkgs) {
-     bpkg_t* bpkg = pkg_find_by_ident(bpkgs, pkt_in->payload->ident);
+     bpkg_t* bpkg = pkg_find_by_ident(bpkgs, pkt_in->payload.res.ident);
 
      if ( bpkg == NULL ) {
-          debug_print(
-               "Specified package for installation not found on local "
-               "disc...\n");
+          debug_print("Specified package for installation not found on local disc...\n");
           return -1;
      }
 
      if ( pkt_in->error < 0 ) {
-          debug_print("Peer on Port[%d] does not have the requested chunk...\n",
-               peer->port);
+          debug_print("Peer on Port[%d] does not have the requested chunk...\n", peer->port);
           return -1;
      }
 
@@ -158,20 +146,35 @@ int pkt_install(pkt_t* pkt_in, peer_t* peer, bpkgs_t* bpkgs) {
      return 1;
 }
 
-int pkt_chk_update_data(mtree_node_t* chk_node, payload_t* payload) {
-     if ( chk_node->chunk->size >= payload->size &&
-          chk_node->chunk->offset == payload->offset ) {
-          memcpy(chk_node->chunk->data, payload->data, payload->size);
+/**
+ * @brief Update chunk node data with payload content.
+ *
+ * @param chk_node Target chunk node
+ * @param payload Payload data
+ * @return int 0 on success, -1 on failure
+ */
+int pkt_chk_update_data(mtree_t* mtree, mtree_node_t* chk_node, payload_t payload) {
+     if ( update_chunk_node(mtree, chk_node, payload.res.data, payload.res.size, payload.res.offset) ) {
+          ;
+
           debug_print("Successfully updated chunk data!\n");
-          return 0;  // Indicate success
+          return 0;
      }
      else {
-          debug_print(
-               "Failed to update chunk data due to mismatching metadata...\n");
-          return -1;  // Indicate failure
+          debug_print("Failed to update chunk data due to mismatching metadata...\n");
+          return -1;
      }
 }
 
+/* Functions for managing packages within shared thread resources */
+
+/**
+ * @brief Find a package by its identifier.
+ *
+ * @param bpkgs Package manager
+ * @param ident_qry Identifier to search for
+ * @return bpkg_t* Pointer to the found package, or NULL if not found
+ */
 bpkg_t* pkg_find_by_ident(bpkgs_t* bpkgs, char* ident_qry) {
      q_node_t* curr = bpkgs->ls->head;
 
@@ -191,15 +194,28 @@ bpkg_t* pkg_find_by_ident(bpkgs_t* bpkgs, char* ident_qry) {
      return res;
 }
 
+/**
+ * @brief Add a package to the package manager. Mutexed to ensure thread safety
+ *
+ * @param bpkgs Package manager
+ * @param bpkg Package to add
+ * @return int 1 on success, -1 on failure
+ */
 int pkgs_add(bpkgs_t* bpkgs, bpkg_t* bpkg) {
      pthread_mutex_lock(&bpkgs->lock);
      q_enqueue(bpkgs->ls, bpkg);
-     bpkgs->count++;              
+     bpkgs->count++;
      pthread_mutex_unlock(&bpkgs->lock);
-
      return 1;
 }
 
+/**
+ * @brief Remove a package by its identifier.
+ *
+ * @param bpkgs Package manager
+ * @param ident Identifier of the package to remove
+ * @return int 1 on success, -1 on failure
+ */
 int pkgs_rem(bpkgs_t* bpkgs, char* ident) {
      pthread_mutex_lock(&bpkgs->lock);
      q_node_t* current = bpkgs->ls->head;
@@ -210,8 +226,7 @@ int pkgs_rem(bpkgs_t* bpkgs, char* ident) {
      while ( current != NULL ) {
           bpkg_t* bpkg_curr = (bpkg_t*)current->data;
 
-          if ( strlen(bpkg_curr->ident) >= ident_len &&
-               strncmp(ident, bpkg_curr->ident, ident_len) == 0 ) {
+          if ( strlen(bpkg_curr->ident) >= ident_len && strncmp(ident, bpkg_curr->ident, ident_len) == 0 ) {
                if ( previous != NULL ) {
                     previous->next = current->next;
                }
@@ -235,6 +250,12 @@ int pkgs_rem(bpkgs_t* bpkgs, char* ident) {
      return -1;  // Indicate failure if no match found
 }
 
+/**
+ * @brief Initialize the package manager.
+ *
+ * @param directory Directory for package storage
+ * @return bpkgs_t* Pointer to the initialized package manager
+ */
 bpkgs_t* pkgs_init(char* directory) {
      bpkgs_t* bpkgs = (bpkgs_t*)my_malloc(sizeof(bpkgs_t));
 
@@ -262,6 +283,11 @@ bpkgs_t* pkgs_init(char* directory) {
      return bpkgs;  // Return the initialized structure
 }
 
+/**
+ * @brief Destroy the package manager and free resources.
+ *
+ * @param bpkgs Package manager to destroy
+ */
 void pkgs_destroy(bpkgs_t* bpkgs) {
      if ( !bpkgs ) return;
 
@@ -273,11 +299,10 @@ void pkgs_destroy(bpkgs_t* bpkgs) {
           bpkg_t* bpkg_curr = (bpkg_t*)current->data;
 
           bpkg_obj_destroy(bpkg_curr);
-          free(current);
+          bpkg_curr = NULL;
 
           current = next;
      }
-
      q_destroy(bpkgs->ls);
      pthread_mutex_unlock(&bpkgs->lock);
      pthread_mutex_destroy(&bpkgs->lock);

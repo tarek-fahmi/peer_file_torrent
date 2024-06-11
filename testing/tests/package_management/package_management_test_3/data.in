@@ -1,0 +1,5 @@
+Incomplete Packages
+./testing/bin/btide ./testing/resources/config/config.cfg
+ADDPACKAGE invalid_1.bpkg
+PACKAGES
+QUIT

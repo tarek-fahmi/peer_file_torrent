@@ -1,0 +1,3 @@
+ Verify file.data Exists
+./testing/bin/pkg_main ./testing/resources/valid_1.bpkg -file_check
+./testing/bin/pkg_main ./testing/resources/valid_2.bpkg -file_check

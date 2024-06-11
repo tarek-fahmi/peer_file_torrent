@@ -1,0 +1,2 @@
+Catch file.data Missing
+./testing/bin/pkg_main ./testing/resources/missing.bpkg -file_check

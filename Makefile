@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -std=c2x -g -fsanitize=address #-DDEBUG
+CFLAGS=-Wall -std=c2x -g -fsanitize=address 
 LDFLAGS=-lm -lpthread
 INCLUDE=-Iinclude
 
@@ -24,21 +24,20 @@ pkgmain: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree
 btide: src/btide.c src/config.c src/peer_2_peer/peer_handler.c src/peer_2_peer/peer_server.c src/peer_2_peer/cli.c  src/peer_2_peer/peer_data_sync.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c src/peer_2_peer/packet.c src/peer_2_peer/package.c
 	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
 
-# Alter your build for p1 tests to build unit-tests for your
-# merkle tree, use pkgchk to help with what to test for
-# as well as some basic functionality
-p1tests:
-	bash p1test.sh
+pktchk: src/pktchk.c src/peer_2_peer/peer_data_sync.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c src/peer_2_peer/packet.c src/peer_2_peer/package.c
+	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o $@
 
-# Alter your build for p2 tests to build IO tests
-# for your btide client, construct .in/.out files
-# and construct a script to help test your client
-# You can opt to constructing a program to
-# be the tests instead, however please document
-# your testing methods
-p2tests:
-	bash p2test.sh
+
+prep_p1_tests: src/pkgmain.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c
+	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o ./testing/bin/pkg_main
+	
+
+prep_p2_tests: src/btide.c src/config.c src/peer_2_peer/peer_handler.c src/peer_2_peer/peer_server.c src/peer_2_peer/cli.c  src/peer_2_peer/peer_data_sync.c src/chk/pkgchk.c src/chk/pkg_helper.c src/tree/merkletree.c src/utilities/my_utils.c  src/crypt/sha256.c src/peer_2_peer/packet.c src/peer_2_peer/package.c
+	$(CC) $^ $(INCLUDE) $(CFLAGS) $(LDFLAGS) -o ./testing/bin/btide
+
+test: prep_p1_tests prep_p2_tests
+	bash testing/test_controller.sh
 
 clean:
-	rm -f objs/*
+	rm -f ./tests/bin*
     

@@ -1,0 +1,2 @@
+Unallowed Config Specs
+./testing/bin/btide ./testing/resources/config/neg_peers.cfg

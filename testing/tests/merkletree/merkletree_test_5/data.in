@@ -1,0 +1,2 @@
+All Chunks Identical - Validate Contruction (Edge)
+./testing/bin/pkg_main ./testing/resources/broken_record.bpkg -all_hashes
