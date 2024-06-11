@@ -109,7 +109,7 @@ void peers_add(peers_t* peers, peer_t* new_peer) {
     pthread_mutex_lock(&peers->lock);
 
     if (peers->npeers_cur >= peers->npeers_max) {
-        fprintf(stderr, "Cannot add peer: max peers connected...\n");
+        perror("Cannot add peer: max peers connected...\n");
     } else {
         for (size_t i = 0; i < peers->npeers_max; i++) {
             if (peers->list[i] == NULL) {

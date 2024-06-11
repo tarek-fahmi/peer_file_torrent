@@ -28,6 +28,7 @@ void peer_cleanup_handler(void* arg) {
      } else {
           debug_print("No peer found to clean up.\n");
      }
+     free(args);
      return;
 }
 
@@ -106,7 +107,7 @@ pkt_t* peer_try_receive(peer_t* peer) {
                return NULL;
           }
           if (n == 0) {
-               fprintf(stderr, "Connection closed by peer.\n");
+               perror("Connection closed by peer.\n");
                free(buffer);
                return NULL;
           }

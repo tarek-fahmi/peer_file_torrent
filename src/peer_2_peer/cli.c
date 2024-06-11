@@ -49,8 +49,9 @@ void cli_connect(char *ip, int port, request_q_t *reqs_q, peers_t *peers,
           return;
      }
 
-     debug_print("Connection established with peer %s:%d.\n", ip, port);
+     printf("Connection established with peer\n");
      peer_create_thread(peer, reqs_q, peers, bpkgs);
+     cli_list_peers(peers);
 }
 
 /**
@@ -291,8 +292,8 @@ void cli_fetch(char *args, bpkgs_t *bpkgs, peers_t *peers,
  *
  * @returns Intger, 0 if valid command, -1 if invalid command.
  */
-void cli_process_command(char *input, request_q_t *reqs_q, peers_t *peers,
-                         bpkgs_t *bpkgs) {
+int cli_process_command(char *input, request_q_t *reqs_q, peers_t *peers,
+                        bpkgs_t *bpkgs) {
      char *ip = (char *)my_malloc(INET_ADDRSTRLEN);
      uint32_t port;
      char *arguments =
@@ -300,7 +301,7 @@ void cli_process_command(char *input, request_q_t *reqs_q, peers_t *peers,
      char *command = strtok(input, " ");
 
      if (strcmp(command, "CONNECT") == 0) {
-          if (sscanf(arguments, "%s:%u", ip, &port) != 2) {
+          if (sscanf(arguments, "%s:%i", ip, &port) != 2) {
                printf("Missing address and port argument.\n");
           } else {
                cli_connect(ip, port, reqs_q, peers, bpkgs);
@@ -323,10 +324,26 @@ void cli_process_command(char *input, request_q_t *reqs_q, peers_t *peers,
           cli_fetch(arguments, bpkgs, peers, reqs_q);
      } else if (strcmp(command, "QUIT") == 0) {
           free(ip);
-          exit(EXIT_SUCCESS);
+          return 0;
      } else {
           printf("Invalid Input.\n");
      }
 
      free(ip);
+     return 1;
+}
+
+void cli_run(request_q_t *reqs_q, peers_t *peers, bpkgs_t *bpkgs) {
+     char input[MAX_COMMAND_LENGTH];
+     while (1) {
+          if (fgets(input, sizeof(input), stdin) != NULL) {
+               debug_print("Input: '%.5520s'", input);
+               if (cli_process_command(input, reqs_q, peers, bpkgs) == 0) {
+                    break;
+               }
+          } else {
+               break;
+          }
+     }
+     debug_print("Shutting down btide due to EOF...\n");
 }

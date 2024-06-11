@@ -38,25 +38,18 @@ int p2p_setup_server(uint16_t port) {
 }
 
 void* server_thread_handler(void* args_void) {
-     server_thr_args_t* args = (server_thr_args_t*)args_void;
-     debug_print("Server thread handler started for port: %d\n",
-                 args->server_port);
-     p2p_server_listening(args->server_fd, args->server_port, args->reqs_q,
-                          args->peers, args->bpkgs);
-     debug_print("Server thread handler exiting for port: %d\n",
-                 args->server_port);
+     debug_print("Server thread handler started\n");
+     p2p_server_listening(args_void);
      return NULL;
 }
 
-pthread_t create_p2p_server_thread(int server_fd, int server_port,
-                                   request_q_t* reqs_q, peers_t* peers,
-                                   bpkgs_t* bpkgs) {
-     pthread_t server_thread;
+void create_p2p_server_thread(int server_fd, int server_port,
+                              pthread_t* server_thread, request_q_t* reqs_q,
+                              peers_t* peers, bpkgs_t* bpkgs) {
      server_thr_args_t* args =
-         (server_thr_args_t*)malloc(sizeof(server_thr_args_t));
-
+         (server_thr_args_t*)my_malloc(sizeof(server_thr_args_t));
      if (!args) {
-          perror("Failed to allocate memory for server thread arguments\n");
+          perror("Failed to allocate memory for server_thr_args_t");
           exit(EXIT_FAILURE);
      }
 
@@ -64,46 +57,48 @@ pthread_t create_p2p_server_thread(int server_fd, int server_port,
      args->server_port = server_port;
      args->reqs_q = reqs_q;
      args->peers = peers;
-     args->bpkgs = bpkgs;  // Add missing assignment
+     args->bpkgs = bpkgs;
 
-     // Create the thread
      int result =
-         pthread_create(&server_thread, NULL, server_thread_handler, args);
+         pthread_create(server_thread, NULL, server_thread_handler, args);
      if (result != 0) {
           perror("Server thread creation failed\n");
           free(args);
           exit(EXIT_FAILURE);
-          return server_thread;
-     }
-
-     // Detach the thread to allow it to clean up after itself when it finishes
-     result = pthread_detach(server_thread);
-     if (result != 0) {
-          perror("Failed to detach server thread\n");
-          free(args);
-          exit(EXIT_FAILURE);
-          return server_thread;
      }
 
      debug_print("Server thread created successfully on port: %d\n",
                  server_port);
-     return server_thread;
 }
 
 void server_thread_cleanup(void* arg) {
-     int* server_fd = (int*)arg;
-     if (server_fd && *server_fd >= 0) {
-          close(*server_fd);
-          debug_print("Server socket closed in cleanup.\n");
+     server_thr_args_t* args = (server_thr_args_t*)arg;
+     if (args == NULL) {
+          debug_print("Cleanup handler received a NULL argument.\n");
+          return;
      }
+
+     if (args->server_fd >= 0) {
+          if (close(args->server_fd) == 0) {
+               debug_print("Socket closed successfully.\n");
+          } else {
+               perror("Failed to close socket\n");
+          }
+     }
+     debug_print("Cleanup completed Server.\n");
+     free(arg);
 }
 
-void p2p_server_listening(int server_fd, int server_port, request_q_t* reqs_q,
-                          peers_t* peers, bpkgs_t* bpkgs) {
-     pthread_cleanup_push(server_thread_cleanup, &server_fd);
+void p2p_server_listening(void* arg) {
+     server_thr_args_t* args = (server_thr_args_t*)arg;
+     int server_fd = args->server_fd;
+     request_q_t* reqs_q = args->reqs_q;
+     peers_t* peers = args->peers;
+     bpkgs_t* bpkgs = args->bpkgs;
+
+     pthread_cleanup_push(server_thread_cleanup, args);
      while (true) {
-          debug_print("Server on port %d waiting for connections...\n",
-                      server_port);
+          debug_print("Server waiting for connections...\n");
           struct sockaddr_in peer_addr;
           socklen_t addrlen = sizeof(peer_addr);
 
@@ -116,6 +111,11 @@ void p2p_server_listening(int server_fd, int server_port, request_q_t* reqs_q,
 
           peer_t* peer = peer_create(inet_ntoa(peer_addr.sin_addr),
                                      ntohs(peer_addr.sin_port));
+          if (!peer) {
+               perror("Failed to allocate memory for peer\n");
+               close(new_sock_fd);
+               continue;
+          }
           peer->sock_fd = new_sock_fd;
 
           debug_print("Connected to new peer: %s:%d\n",
@@ -123,5 +123,5 @@ void p2p_server_listening(int server_fd, int server_port, request_q_t* reqs_q,
           peer_create_thread(peer, reqs_q, peers, bpkgs);
           pthread_testcancel();
      }
-     pthread_cleanup_pop(1);  // Ensure the cleanup handler is executed
+     pthread_cleanup_pop(1);
 }
