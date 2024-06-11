@@ -17,11 +17,11 @@ void pkt_marshall(pkt_t* pkt_o, uint8_t* data_marshalled) {
      uint8_t* curr_ptr = data_marshalled;
 
      memcpy(curr_ptr, &pkt_o->msg_code,
-            sizeof(pkt_o->msg_code));  // Use the address of msg_code
+          sizeof(pkt_o->msg_code));  // Use the address of msg_code
      curr_ptr += sizeof(pkt_o->msg_code);
 
      memcpy(curr_ptr, &pkt_o->error,
-            sizeof(pkt_o->error));  // Use the address of error
+          sizeof(pkt_o->error));  // Use the address of error
      curr_ptr += sizeof(pkt_o->error);
 
      payload_t* pl = pkt_o->payload;
@@ -67,7 +67,7 @@ void pkt_unmarshall(pkt_t* pkt_i, uint8_t* data_marshalled) {
 
 pkt_t* pkt_create(uint8_t msg, uint8_t err, payload_t* payload) {
      pkt_t* pkt = (pkt_t*)my_malloc(sizeof(pkt_t));
-     if (!pkt) {
+     if ( !pkt ) {
           // Handle allocation failure if needed
           return NULL;
      }
@@ -78,7 +78,7 @@ pkt_t* pkt_create(uint8_t msg, uint8_t err, payload_t* payload) {
 }
 
 payload_t* payload_create(uint32_t offset, uint16_t size, char* hash,
-                          char* ident, uint8_t* data) {
+     char* ident, uint8_t* data) {
      payload_t* pl = (payload_t*)my_malloc(sizeof(payload_t));
      pl->offset = offset;
      pl->size = size;
@@ -91,7 +91,7 @@ payload_t* payload_create(uint32_t offset, uint16_t size, char* hash,
 void payload_destroy(payload_t* payload) { free(payload); }
 
 void pkt_destroy(pkt_t* pkt) {
-     if (pkt->payload) {
+     if ( pkt->payload ) {
           payload_destroy(pkt->payload);
      }
      free(pkt);

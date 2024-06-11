@@ -22,17 +22,19 @@
  */
 bpkg_t* bpkg_load(const char* path) {
     bpkg_t* bpkg = bpkg_create();
-    if (!bpkg) return NULL;
+    if ( !bpkg ) return NULL;
+
+    debug_print("loading package file at path: %s\n", path);
 
     int fd = open(path, O_RDWR);
-    if (fd < 0) {
+    if ( fd < 0 ) {
         perror("Cannot open file\n");
         bpkg_obj_destroy(bpkg);
         return NULL;
     }
 
     struct stat statbuf;
-    if (fstat(fd, &statbuf)) {
+    if ( fstat(fd, &statbuf) ) {
         perror("Fstat failure\n");
         close(fd);
         bpkg_obj_destroy(bpkg);
@@ -40,7 +42,7 @@ bpkg_t* bpkg_load(const char* path) {
     }
 
     bpkg->pkg_data = (char*)mmap(NULL, statbuf.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-    if (bpkg->pkg_data == MAP_FAILED) {
+    if ( bpkg->pkg_data == MAP_FAILED ) {
         perror("Cannot mmap file\n");
         close(fd);
         bpkg_obj_destroy(bpkg);
@@ -50,7 +52,7 @@ bpkg_t* bpkg_load(const char* path) {
     bpkg->pkg_size = statbuf.st_size;
     close(fd);
 
-    if (bpkg_unpack(bpkg) != 0) {
+    if ( bpkg_unpack(bpkg) != 0 ) {
         munmap(bpkg->pkg_data, statbuf.st_size);
         bpkg_obj_destroy(bpkg);
         return NULL;
@@ -61,7 +63,7 @@ bpkg_t* bpkg_load(const char* path) {
 
     debug_print("Successfully unpacked package file!\n");
 
-    if (mtree_build(bpkg->mtree, bpkg->filename) == NULL) {
+    if ( mtree_build(bpkg->mtree, bpkg->filename) == NULL ) {
         munmap(bpkg->pkg_data, statbuf.st_size);
         bpkg_obj_destroy(bpkg);
         return NULL;
@@ -82,22 +84,22 @@ bpkg_t* bpkg_load(const char* path) {
  */
 bpkg_query_t* bpkg_file_check(bpkg_t* bpkg)
 {
-    char** hashes = (char**) my_malloc(sizeof(char*));
+    char** hashes = (char**)my_malloc(sizeof(char*));
 
-    if (access(bpkg->filename, F_OK) == 0) 
+    if ( access(bpkg->filename, F_OK) == 0 )
     {
         hashes[0] = "File Exists";
-    } 
-    else 
+    }
+    else
     {
         FILE* fptr = fopen(bpkg->filename, "wb");
-        if (fptr == NULL) 
+        if ( fptr == NULL )
         {
             perror("Failed to create bpkg data file...");
             free(hashes);
             exit(EXIT_FAILURE);
         }
-        else{
+        else {
             hashes[0] = "File Created";
         }
         fclose(fptr);
@@ -116,16 +118,16 @@ bpkg_query_t* bpkg_get_all_hashes(bpkg_t* bpkg)
 {
     debug_print("Printing all hashes...\n");
     char** hashes = my_malloc(sizeof(char*) * bpkg->mtree->nnodes);
- 
+
     mtree_t* mtree = bpkg->mtree;
 
-    for (int i=0; i < mtree->nnodes; i++)
+    for ( int i = 0; i < mtree->nnodes; i++ )
     {
         hashes[i] = mtree->nodes[i]->expected_hash;
     }
 
     bpkg_query_t* qry = bpkg_qry_create(hashes, mtree->nnodes);
-    
+
     return qry;
 }
 
@@ -135,15 +137,15 @@ bpkg_query_t* bpkg_get_all_hashes(bpkg_t* bpkg)
  * @return query_result, This structure will contain a list of hashes
  * 		and the number of hashes that have been retrieved
  */
-/**
- * Retrieves all completed chunks of a package object
- * @param bpkg, constructed bpkg object
- * @return query_result, This structure will contain a list of hashes
- * 		and the number of hashes that have been retrieved
- */
+ /**
+  * Retrieves all completed chunks of a package object
+  * @param bpkg, constructed bpkg object
+  * @return query_result, This structure will contain a list of hashes
+  * 		and the number of hashes that have been retrieved
+  */
 bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg) {
     mtree_t* mtree = bpkg->mtree;
-    if (mtree == NULL) {
+    if ( mtree == NULL ) {
         debug_print("Error: Invalid mtree structure.\n");
         return NULL;
     }
@@ -151,21 +153,21 @@ bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg) {
     int count = 0;
     debug_print("Running chunk check...\n\tnchunks: %u\n", mtree->nchunks);
 
-    char** hashes = (char**) my_malloc(sizeof(char*) * mtree->nchunks);
+    char** hashes = (char**)my_malloc(sizeof(char*) * mtree->nchunks);
     // First, count the number of completed chunks
-    for (int i = 0; i < mtree->nchunks; i++) {
+    for ( int i = 0; i < mtree->nchunks; i++ ) {
         mtree_node_t* chk_node = mtree->chk_nodes[i];
-        if (chk_node && check_chunk(chk_node)) {
+        if ( chk_node && check_chunk(chk_node) ) {
             hashes[count] = chk_node->expected_hash;
             count++;
         }
     }
 
     // Allocate memory for the hashes array
-    if (count != 0 && count != mtree->nchunks)
+    if ( count != 0 && count != mtree->nchunks )
     {
-        hashes = (char**)realloc(hashes, (count * sizeof(char*)));
-        if (hashes == NULL)
+        hashes = (char**)realloc(hashes, ( count * sizeof(char*) ));
+        if ( hashes == NULL )
         {
             perror("Reallocation for hashes array failed...");
             bpkg_obj_destroy(bpkg);
@@ -173,7 +175,7 @@ bpkg_query_t* bpkg_get_completed_chunks(bpkg_t* bpkg) {
             exit(EXIT_FAILURE);
         }
     }
-    
+
     bpkg_query_t* qry = bpkg_qry_create(hashes, count);
     return qry;
 }
@@ -227,8 +229,8 @@ bpkg_query_t* bpkg_get_all_chunk_hashes_from_hash(bpkg_t* bpkg, char* query_hash
  */
 void bpkg_query_destroy(bpkg_query_t* qobj)
 {
-    if (qobj->hashes) free(qobj->hashes);
-    if (qobj) free(qobj);
+    if ( qobj->hashes ) free(qobj->hashes);
+    if ( qobj ) free(qobj);
 }
 
 /**
@@ -236,14 +238,14 @@ void bpkg_query_destroy(bpkg_query_t* qobj)
  * make sure it has been completely deallocated
  */
 void bpkg_obj_destroy(bpkg_t* bobj) {
-    if (bobj) {
+    if ( bobj ) {
         debug_print("Destroying bpkg object\n");
-        if (bobj->mtree) {
+        if ( bobj->mtree ) {
             mtree_destroy(bobj->mtree);
             bobj->mtree = NULL;
             debug_print("Destroyed mtree\n");
         }
-        if (bobj->pkg_data) {
+        if ( bobj->pkg_data ) {
             munmap(bobj->pkg_data, bobj->pkg_size);
             bobj->pkg_data = NULL;
             debug_print("Unmapped pkg_data\n");
@@ -259,7 +261,7 @@ void bpkg_obj_destroy(bpkg_t* bobj) {
 
 bpkg_query_t* bpkg_qry_create(char** hashes, uint16_t len)
 {
-    bpkg_query_t* qobj = (bpkg_query_t*) my_malloc(sizeof(bpkg_query_t));
+    bpkg_query_t* qobj = (bpkg_query_t*)my_malloc(sizeof(bpkg_query_t));
     qobj->hashes = hashes;
     qobj->len = len;
     return qobj;

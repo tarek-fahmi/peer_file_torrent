@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -std=c2x -g -fsanitize=address -DDEGBUG
+CFLAGS=-Wall -std=c2x -g -fsanitize=address #-DDEBUG
 LDFLAGS=-lm -lpthread
 INCLUDE=-Iinclude
 
