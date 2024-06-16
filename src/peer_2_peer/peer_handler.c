@@ -172,6 +172,7 @@ void process_pkt_out(peer_t* peer, request_t* req) {
      default:
           break;
      }
+     req_destroy(req);
 }
 
 /**

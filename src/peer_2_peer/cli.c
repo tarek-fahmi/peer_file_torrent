@@ -58,7 +58,8 @@ void cli_connect(char* ip, int port, peers_t* peers, bpkgs_t* bpkgs) {
                                       .sin_addr.s_addr = inet_addr(ip) };
 
      if ( connect(peer->sock_fd, (struct sockaddr*)&peer_addr, sizeof(peer_addr)) < 0 ) {
-          fprintf(stderr, "Failed to connect to peer");
+          fprintf(stdout, "Could not connect to request peer");
+          fflush(stdout);
           close(peer->sock_fd);
           reqs_destroy(peer->reqs_q);
           free(peer);
@@ -237,7 +238,6 @@ void cli_list_peers(peers_t* peers) {
                     reqs_enqueue(peers->list[i]->reqs_q, req);
                     fflush(stdout);
                     j++;
-                    req_destroy(req);
                }
           }
      }
